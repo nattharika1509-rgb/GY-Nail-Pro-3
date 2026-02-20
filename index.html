@@ -88,7 +88,7 @@
     <!-- Header -->
     <header class="bg-gradient-to-r from-rose-400 to-rose-500 text-white shadow-lg sticky top-0 z-50 rounded-b-3xl mb-4">
         <div class="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-2">
-            <div class="flex justify-between items-start mb-3">
+            <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center space-x-2 flex-1 min-w-0">
                     <div class="bg-white/20 p-2 rounded-full backdrop-blur-sm shrink-0">
                         <i class="fas fa-gem text-lg"></i>
@@ -98,22 +98,22 @@
                         <p class="text-xs text-rose-100 font-light tracking-wide">จองคิวทำเล็บออนไลน์</p>
                     </div>
                 </div>
-                <div id="shopStatusBadge" class="hidden shrink-0 ml-2">
-                    <div id="shopStatusOpen" class="hidden px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-green-300" style="background: linear-gradient(135deg, #22c55e, #16a34a);">
-                        <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span></span>
-                        เปิด
+                <div class="flex flex-col items-end gap-1">
+                    <div id="shopStatusBadge" class="hidden">
+                        <div id="shopStatusOpen" class="hidden px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border border-green-300" style="background: linear-gradient(135deg, #22c55e, #16a34a);">
+                            <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span></span>
+                            เปิด
+                        </div>
+                        <div id="shopStatusClosed" class="hidden px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border border-red-300" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                            <i class="fas fa-door-closed text-xs"></i>
+                            ปิด
+                        </div>
                     </div>
-                    <div id="shopStatusClosed" class="hidden px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border border-red-300" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
-                        <i class="fas fa-door-closed text-xs"></i>
-                        ปิด
+                    <div id="marquee-banner" class="hidden overflow-hidden rounded-full bg-white/20 backdrop-blur-sm py-0.5 px-2 w-32">
+                        <div class="overflow-hidden whitespace-nowrap">
+                            <span class="inline-block animate-marquee text-white text-[10px] font-medium" id="marquee-text"></span>
+                        </div>
                     </div>
-                </div>
-            </div>
-            
-            <!-- Marquee in header - centered -->
-            <div id="marquee-banner" class="hidden mb-3 mx-auto w-3/4 overflow-hidden rounded-full bg-white/20 backdrop-blur-sm py-1">
-                <div class="overflow-hidden whitespace-nowrap">
-                    <span class="inline-block animate-marquee text-white text-xs font-medium px-2" id="marquee-text"></span>
                 </div>
             </div>
             
@@ -714,7 +714,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbxhitKL5cWB4_7OTQBkEEAhP3VZjmGr-1BrE-eZJZM3-KArSAKPK71qGZyJ7dMDGrfQTQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwOGEZAVZorAN-2IZsxcvYTQF4ONnFXungmTw1UVeoztQ2AZIL55VO1p-MjA74n0vcxpQ/exec";
 
 let settings = {}; 
 let bookings = [];

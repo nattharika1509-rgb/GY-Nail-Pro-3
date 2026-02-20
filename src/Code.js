@@ -410,25 +410,27 @@ function updateBookingStatus(data) {
   
   sheet.getRange(row, 16).setValue(data.status);
   
-  // Get booking details for calendar
   const bookingRow = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
   const booking = {
     orderId: bookingRow[0], date: bookingRow[1], time: bookingRow[2],
     service: bookingRow[7], customerName: bookingRow[4],
-    phone: bookingRow[5], location: bookingRow[12], price: bookingRow[14]
+    phone: bookingRow[5], location: bookingRow[12], price: bookingRow[14],
+    address: bookingRow[13], duration: bookingRow[10] || 60
   };
   
+  let calendarLink = '';
   if (data.status === CONFIG.STATUS.CONFIRMED) {
     sheet.getRange(row, 20).setValue('Admin');
     sheet.getRange(row, 21).setValue(new Date());
-    addBookingToCalendar(booking);
+    const calResult = addBookingToCalendar(booking);
+    if (calResult) calendarLink = calResult.calendarLink;
   }
   
   if (data.status === CONFIG.STATUS.CANCELLED) {
     removeBookingFromCalendar(booking.orderId);
   }
   
-  return { status: 'success' };
+  return { status: 'success', calendarLink: calendarLink };
 }
 
 function deleteBooking(data) {
@@ -728,28 +730,60 @@ function removeSpecialDate(data) {
 function addBookingToCalendar(booking) {
   try {
     const calendar = CalendarApp.getCalendarById(CONFIG.CALENDAR_ID);
-    if (!calendar) { console.error('Calendar not found'); return; }
+    if (!calendar) { console.error('Calendar not found'); return null; }
     
-    const dateParts = String(booking.date).split('-');
+    const dateStr = typeof booking.date === 'string' ? booking.date : formatDateISO(booking.date);
+    const dateParts = dateStr.split('-');
     const timeParts = String(booking.time).split(':');
     
     const startTime = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]), parseInt(timeParts[0]), parseInt(timeParts[1]));
-    const endTime = new Date(startTime.getTime() + (60 * 60 * 1000));
+    const duration = parseInt(booking.duration) || 60;
+    const endTime = new Date(startTime.getTime() + (duration * 60 * 1000));
     
     const event = calendar.createEvent(
-      `[GY-Nail] ${booking.service} - ${booking.customerName}`,
+      `💅 [GY-Nail] ${booking.service} - ${booking.customerName}`,
       startTime, endTime,
       {
-        description: `รหัสจอง: ${booking.orderId}\nบริการ: ${booking.service}\nลูกค้า: ${booking.customerName}\nเบอร์โทร: ${booking.phone}\nสถานที่: ${booking.location}\nราคา: ${booking.price} บาท`,
-        location: booking.location === 'ทำที่ร้าน' ? 'GY-Nail Shop' : booking.location
+        description: [
+          `📋 รหัสจอง: ${booking.orderId}`,
+          `💅 บริการ: ${booking.service}`,
+          `👤 ลูกค้า: ${booking.customerName}`,
+          `📞 เบอร์โทร: ${booking.phone}`,
+          `📍 สถานที่: ${booking.location || 'ทำที่ร้าน'}`,
+          `💰 ราคา: ${booking.price} บาท`,
+          ``,
+          `--- GY-Nail Booking System ---`
+        ].join('\n'),
+        location: booking.location === 'ทำที่ร้าน' ? 'GY-Nail Shop' : (booking.address || booking.location)
       }
     );
     
-    event.addEmailReminder(60);
+    event.setColor(CalendarApp.EventColor.ROSE);
+    event.removeAllReminders();
     event.addPopupReminder(30);
-    console.log('Event added:', event.getId());
-    return event;
-  } catch (error) { console.error('Calendar error:', error); }
+    event.addPopupReminder(120);
+    event.addEmailReminder(1440);
+    event.addEmailReminder(120);
+    
+    console.log('Calendar event created:', event.getId());
+    return {
+      eventId: event.getId(),
+      calendarLink: buildGoogleCalendarLink(booking, startTime, endTime)
+    };
+  } catch (error) {
+    console.error('Calendar error:', error);
+    return null;
+  }
+}
+
+function buildGoogleCalendarLink(booking, startTime, endTime) {
+  const fmt = (d) => Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyyMMdd'T'HHmmss");
+  const title = encodeURIComponent(`💅 GY-Nail: ${booking.service}`);
+  const details = encodeURIComponent(
+    `รหัสจอง: ${booking.orderId}\nบริการ: ${booking.service}\nเบอร์โทร: ${booking.phone}\nราคา: ${booking.price} บาท`
+  );
+  const location = encodeURIComponent(booking.location === 'ทำที่ร้าน' ? 'GY-Nail Shop' : (booking.address || ''));
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${fmt(startTime)}/${fmt(endTime)}&details=${details}&location=${location}&ctz=Asia/Bangkok`;
 }
 
 function removeBookingFromCalendar(orderId) {
@@ -758,7 +792,7 @@ function removeBookingFromCalendar(orderId) {
     if (!calendar) return;
     
     const startDate = new Date();
-    const endDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000));
+    const endDate = new Date(startDate.getTime() + (90 * 24 * 60 * 60 * 1000));
     const events = calendar.getEvents(startDate, endDate);
     
     for (const event of events) {
@@ -769,6 +803,32 @@ function removeBookingFromCalendar(orderId) {
       }
     }
   } catch (error) { console.error('Calendar error:', error); }
+}
+
+function sendBookingReminders() {
+  const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
+  const rows = sheet.getDataRange().getValues();
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+  const tomorrowStr = formatDateISO(tomorrow);
+  
+  let sent = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const rowDate = formatDateISO(rows[i][1]);
+    const status = rows[i][15];
+    
+    if (rowDate === tomorrowStr && status === CONFIG.STATUS.CONFIRMED) {
+      const booking = {
+        orderId: rows[i][0], date: rows[i][1], time: rows[i][2],
+        service: rows[i][7], customerName: rows[i][4], phone: rows[i][5]
+      };
+      console.log(`Reminder: ${booking.customerName} - ${booking.time} tomorrow`);
+      sent++;
+    }
+  }
+  
+  console.log(`Booking reminders processed: ${sent} for ${tomorrowStr}`);
+  return { status: 'success', reminders: sent, date: tomorrowStr };
 }
 
 // ============================================

@@ -76,7 +76,7 @@ function doPost(e) {
   const startTime = new Date().getTime();
   
   try {
-    if (!lock.tryLock(10000)) {
+    if (!lock.tryLock(30000)) {
       return jsonResponse({ status: 'error', message: 'Server busy, try again' });
     }
     
@@ -88,7 +88,7 @@ function doPost(e) {
     }
     
     const data = parseRequest(e);
-    console.log(`[doPost] Data received:`, JSON.stringify(data).substring(0, 100));
+    console.log(`[doPost] Data keys:`, Object.keys(data).join(','));
     
     const result = routeRequest(action, data);
     

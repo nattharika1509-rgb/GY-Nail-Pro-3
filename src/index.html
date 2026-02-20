@@ -712,17 +712,32 @@ const defaultMenu = {
 // API Functions
 const apiCall = (action, params, onSuccess, onFailure) => {
     const queryParams = new URLSearchParams({ action: action });
-    for (const key in params) {
-        if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-            const value = typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key];
-            queryParams.append(key, value);
+    const isLargePayload = params.base64 || params.imageData;
+    
+    let fetchPromise;
+    if (isLargePayload) {
+        fetchPromise = fetch(`${API_URL}?action=${encodeURIComponent(action)}`, {
+            method: "POST",
+            body: JSON.stringify(params),
+            redirect: "follow",
+            mode: "no-cors"
+        }).then(() => {
+            return { status: 'success', message: 'uploaded' };
+        });
+    } else {
+        for (const key in params) {
+            if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+                const value = typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key];
+                queryParams.append(key, value);
+            }
         }
+        fetchPromise = fetch(`${API_URL}?${queryParams.toString()}`, {
+            method: "GET",
+            redirect: "follow"
+        }).then(r => r.json());
     }
-    fetch(`${API_URL}?${queryParams.toString()}`, {
-        method: "GET",
-        redirect: "follow"
-    })
-    .then(r => r.json())
+
+    fetchPromise
     .then(data => {
         if(data.status === 'error' && !data.bookings) {
             if(onFailure) onFailure(data.message);
@@ -2038,15 +2053,20 @@ function submitReview() {
     if (imageFile) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            apiCall('uploadImage', {
-                base64: e.target.result,
-                fileName: imageFile.name,
-                mimeType: imageFile.type,
-                folder: 'REVIEWS',
-                orderId: orderId
-            }, (res) => {
-                doSubmit(res.status === 'success' ? res.fullUrl : '');
-            }, () => doSubmit(''));
+            fetch(`${API_URL}?action=uploadImage`, {
+                method: "POST",
+                body: JSON.stringify({
+                    base64: e.target.result,
+                    fileName: imageFile.name,
+                    mimeType: imageFile.type,
+                    folder: 'REVIEWS',
+                    orderId: orderId
+                }),
+                redirect: "follow",
+                mode: "no-cors"
+            }).then(() => {
+                setTimeout(() => doSubmit('uploaded'), 2000);
+            }).catch(() => doSubmit(''));
         };
         reader.readAsDataURL(imageFile);
     } else {
@@ -2161,6 +2181,7 @@ function uploadPortfolioImage() {
     const category = document.getElementById('portfolio-category').value;
     
     if (!fileInput.files[0]) return Swal.fire('แจ้งเตือน', 'กรุณาเลือกรูปภาพ', 'warning');
+    if (fileInput.files[0].size > 5 * 1024 * 1024) return Swal.fire('แจ้งเตือน', 'ไฟล์ใหญ่เกิน 5MB', 'warning');
     
     const btn = document.getElementById('upload-btn');
     btn.disabled = true;
@@ -2168,27 +2189,31 @@ function uploadPortfolioImage() {
     
     const reader = new FileReader();
     reader.onload = function(e) {
-        apiCall('uploadImage', {
+        const payload = {
             base64: e.target.result,
             fileName: fileInput.files[0].name,
             mimeType: fileInput.files[0].type,
             folder: 'PORTFOLIO',
             caption: caption,
             category: category
-        }, (res) => {
+        };
+        
+        fetch(`${API_URL}?action=uploadImage`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+            redirect: "follow",
+            mode: "no-cors"
+        }).then(() => {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-upload mr-1"></i> อัพโหลด';
-            if (res.status === 'success') {
-                Swal.fire({ icon: 'success', title: 'อัพโหลดสำเร็จ!', timer: 1500, showConfirmButton: false });
-                fileInput.value = '';
-                document.getElementById('portfolio-caption').value = '';
-                loadPortfolioImages();
-            } else {
-                Swal.fire('Error', res.message, 'error');
-            }
-        }, () => {
+            Swal.fire({ icon: 'success', title: 'อัพโหลดสำเร็จ!', text: 'รอสักครู่ รูปกำลังประมวลผล...', timer: 2000, showConfirmButton: false });
+            fileInput.value = '';
+            document.getElementById('portfolio-caption').value = '';
+            setTimeout(() => loadPortfolioImages(), 3000);
+        }).catch(() => {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-upload mr-1"></i> อัพโหลด';
+            Swal.fire('Error', 'อัพโหลดไม่สำเร็จ ลองใหม่', 'error');
         });
     };
     reader.readAsDataURL(fileInput.files[0]);

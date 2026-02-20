@@ -309,7 +309,7 @@
                         <button onclick="toggleAIChat()" class="w-full flex items-center justify-between bg-rose-50 p-3 rounded-lg hover:bg-rose-100 transition">
                             <div class="flex items-center gap-2">
                                 <i class="fas fa-robot text-rose-500"></i>
-                                <span class="text-sm text-gray-700">ทดสอบ AI Consultant</span>
+                                <span class="text-sm text-gray-700">ทดสอบน้องยุ้ย AI</span>
                             </div>
                             <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
                         </button>
@@ -474,7 +474,7 @@
             </div>
         </div>
         <div class="text-center mt-1">
-            <span class="text-[10px] text-rose-500 font-medium bg-white/80 px-2 py-0.5 rounded-full shadow-sm">AI</span>
+            <span class="text-[10px] text-rose-500 font-medium bg-white/80 px-2 py-0.5 rounded-full shadow-sm">น้องยุ้ย</span>
         </div>
     </div>
 
@@ -487,8 +487,8 @@
                         <i class="fas fa-robot text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="font-bold text-sm">AI Nail Consultant</h3>
-                        <p class="text-[10px] text-rose-100">Powered by Gemini</p>
+                        <h3 class="font-bold text-sm">น้องยุ้ยคนสวย</h3>
+                        <p class="text-[10px] text-rose-100">ผู้ช่วยปรึกษาเรื่องเล็บ</p>
                     </div>
                 </div>
                 <button onclick="toggleAIChat()" class="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10"><i class="fas fa-chevron-down"></i></button>
@@ -500,20 +500,23 @@
                         <i class="fas fa-robot text-white text-[10px]"></i>
                     </div>
                     <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm max-w-[85%]">
-                        <p class="text-sm text-gray-700">Hi! <br>
-                        <br>- Nail\Gel <br>- Design<br>- Nail Care Tips<br><br>Ask me!</p>
+                        <p class="text-sm text-gray-700">สวัสดีค่ะ น้องยุ้ยเองนะคะ 💅<br><br>มีอะไรให้ช่วยเรื่องทำเล็บไหมคะ?
+                        <br>• เล็บแห้ง/เปราะ แก้ยังไง?
+                        <br>• แนะนำลาย/ดีไซน์
+                        <br>• เคล็ดลับดูแลเล็บ
+                        <br><br>ถามมาได้เลยค่ะ!</p>
                     </div>
                 </div>
             </div>
             
             <div class="p-3 border-t bg-white rounded-b-2xl">
                 <div class="flex gap-1.5 mb-2 overflow-x-auto no-scrollbar">
-                    <button onclick="setAIContext('dry')" class="text-[11px] bg-orange-100 text-orange-600 px-2.5 py-1 rounded-full hover:bg-orange-200 whitespace-nowrap flex-shrink-0">Dry Nails</button>
-                    <button onclick="setAIContext('design')" class="text-[11px] bg-pink-100 text-pink-600 px-2.5 py-1 rounded-full hover:bg-pink-200 whitespace-nowrap flex-shrink-0">Design</button>
-                    <button onclick="setAIContext('care')" class="text-[11px] bg-green-100 text-green-600 px-2.5 py-1 rounded-full hover:bg-green-200 whitespace-nowrap flex-shrink-0">Care Tips</button>
+                    <button onclick="setAIContext('dry')" class="text-[11px] bg-orange-100 text-orange-600 px-2.5 py-1 rounded-full hover:bg-orange-200 whitespace-nowrap flex-shrink-0">เล็บแห้ง/เปราะ</button>
+                    <button onclick="setAIContext('design')" class="text-[11px] bg-pink-100 text-pink-600 px-2.5 py-1 rounded-full hover:bg-pink-200 whitespace-nowrap flex-shrink-0">แนะนำลาย</button>
+                    <button onclick="setAIContext('care')" class="text-[11px] bg-green-100 text-green-600 px-2.5 py-1 rounded-full hover:bg-green-200 whitespace-nowrap flex-shrink-0">วิธีดูแลเล็บ</button>
                 </div>
                 <div class="flex gap-2">
-                    <input type="text" id="ai-input" placeholder="Type..." class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-500" onkeypress="if(event.key==='Enter')sendAIMessage()">
+                    <input type="text" id="ai-input" placeholder="พิมพ์คำถาม..." class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-500" onkeypress="if(event.key==='Enter')sendAIMessage()">
                     <button onclick="sendAIMessage()" class="bg-rose-500 text-white w-9 h-9 rounded-xl hover:bg-rose-600 flex items-center justify-center flex-shrink-0">
                         <i class="fas fa-paper-plane text-xs"></i>
                     </button>
@@ -1779,12 +1782,12 @@ function sendAIMessage() {
             addMessageToChat('ai', res.data.advice);
             addAIUnread();
         } else {
-            addMessageToChat('ai', 'ขออภัยค่ะ พี่ GY ไม่เข้าใจคำถาม ลองถามใหม่อีกครั้งนะคะ');
+            addMessageToChat('ai', 'ขออภัยนะคะ น้องยุ้ยไม่เข้าใจคำถาม ลองถามใหม่อีกครั้งนะคะ');
             addAIUnread();
         }
     }, () => {
         removeTypingIndicator(typingId);
-        addMessageToChat('ai', 'ขออภัยค่ะ ระบบมีปัญหาชั่วคราว กรุณาลองใหม่ภายหลัง');
+        addMessageToChat('ai', 'ขออภัยค่ะ ระบบขัดข้องชั่วคราว ลองใหม่อีกครั้งนะคะ');
         addAIUnread();
     });
 }

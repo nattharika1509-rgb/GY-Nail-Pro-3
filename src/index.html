@@ -42,6 +42,20 @@
         .cat-tab.active { background-color: #f43f5e; color: white; border-color: #f43f5e; font-weight: 700; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
         .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter: blur(2px); }
         .custom-img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+        @media (min-width: 768px) {
+            #page-booking form .glass-panel { max-width: 100%; }
+            #page-booking .grid.grid-cols-2 { grid-template-columns: repeat(3, 1fr); }
+            #slotsContainer { grid-template-columns: repeat(4, 1fr); }
+        }
+        @media (min-width: 1024px) {
+            #page-booking form .glass-panel { max-width: 100%; }
+            #page-booking .grid.grid-cols-2 { grid-template-columns: repeat(4, 1fr); }
+            #slotsContainer { grid-template-columns: repeat(6, 1fr); }
+        }
+        #ai-bubble { touch-action: none; transition: none; }
+        #ai-bubble.snapping { transition: left 0.3s ease, right 0.3s ease, bottom 0.3s ease; }
+        @keyframes aiBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        #ai-bubble:not(.dragging) > div:first-child { animation: aiBounce 3s ease-in-out infinite; }
     </style>
 </head>
 <body class="font-sans text-gray-600 min-h-screen flex flex-col">
@@ -69,7 +83,7 @@
 
     <!-- Header -->
     <header class="bg-gradient-to-r from-rose-400 to-rose-500 text-white shadow-lg sticky top-0 z-50 rounded-b-3xl mb-4">
-        <div class="max-w-md mx-auto px-6 pt-4 pb-2">
+        <div class="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-2">
             <div class="flex justify-between items-center mb-4">
                 <div class="flex items-center space-x-2">
                     <div class="bg-white/20 p-2 rounded-full backdrop-blur-sm">
@@ -104,7 +118,7 @@
         </div>
     </header>
 
-    <main class="flex-1 max-w-md mx-auto w-full px-4 pb-24">
+    <main class="flex-1 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto w-full px-4 pb-24">
         <!-- BOOKING PAGE -->
         <div id="page-booking" class="fade-in">
             <form id="bookingForm" onsubmit="handleBooking(event)">
@@ -113,10 +127,6 @@
                     <button type="button" onclick="document.getElementById('reviews-modal').classList.remove('hidden'); loadReviews();" class="flex-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white py-3 rounded-xl shadow-lg flex items-center justify-center gap-2">
                         <i class="fas fa-star"></i>
                         <span class="font-medium">รีวิวลูกค้า</span>
-                    </button>
-                    <button type="button" onclick="document.getElementById('ai-modal').classList.remove('hidden')" class="flex-1 bg-gradient-to-r from-rose-400 to-pink-400 text-white py-3 rounded-xl shadow-lg flex items-center justify-center gap-2">
-                        <i class="fas fa-robot"></i>
-                        <span class="font-medium">ปรึกษา AI</span>
                     </button>
                 </div>
 
@@ -207,8 +217,8 @@
                     </div>
                 </div>
 
-                <div class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 p-4 shadow-lg z-40 rounded-t-2xl max-w-md mx-auto">
-                    <div class="flex items-center justify-between gap-4">
+                <div class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 p-4 shadow-lg z-40 rounded-t-2xl">
+                    <div class="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto flex items-center justify-between gap-4">
                         <div class="flex flex-col">
                             <span class="text-xs text-gray-400">ราคาเริ่มต้น</span>
                             <div class="text-xl font-bold text-rose-600 flex items-baseline">
@@ -296,7 +306,7 @@
                             </div>
                             <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
                         </button>
-                        <button onclick="document.getElementById('ai-modal').classList.remove('hidden')" class="w-full flex items-center justify-between bg-rose-50 p-3 rounded-lg hover:bg-rose-100 transition">
+                        <button onclick="toggleAIChat()" class="w-full flex items-center justify-between bg-rose-50 p-3 rounded-lg hover:bg-rose-100 transition">
                             <div class="flex items-center gap-2">
                                 <i class="fas fa-robot text-rose-500"></i>
                                 <span class="text-sm text-gray-700">ทดสอบ AI Consultant</span>
@@ -455,47 +465,57 @@
         </div>
     </div>
 
-    <!-- AI Nail Consultant Modal -->
-    <div id="ai-modal" class="fixed inset-0 bg-black/50 hidden z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-md rounded-2xl h-[80vh] flex flex-col">
-            <div class="flex justify-between items-center p-4 border-b bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-t-2xl">
+    <!-- AI Floating Bubble -->
+    <div id="ai-bubble" class="fixed z-[80] cursor-grab active:cursor-grabbing select-none" style="bottom:100px;right:20px;" ontouchstart="aiBubbleTouchStart(event)" ontouchmove="aiBubbleTouchMove(event)" ontouchend="aiBubbleTouchEnd(event)" onmousedown="aiBubbleMouseDown(event)">
+        <div onclick="toggleAIChat()" class="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-rose-500 to-pink-500 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform">
+            <i class="fas fa-robot text-white text-xl sm:text-2xl"></i>
+            <div id="ai-badge" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
+                <span class="text-white text-[10px] font-bold" id="ai-badge-count">0</span>
+            </div>
+        </div>
+        <div class="text-center mt-1">
+            <span class="text-[10px] text-rose-500 font-medium bg-white/80 px-2 py-0.5 rounded-full shadow-sm">AI</span>
+        </div>
+    </div>
+
+    <!-- AI Chat Panel -->
+    <div id="ai-panel" class="fixed z-[81] hidden" style="bottom:170px;right:10px;">
+        <div class="bg-white w-[calc(100vw-20px)] max-w-sm sm:w-96 rounded-2xl shadow-2xl flex flex-col border border-rose-100" style="height:min(70vh,500px);">
+            <div class="flex justify-between items-center p-3 border-b bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-t-2xl">
                 <div class="flex items-center gap-2">
-                    <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                        <i class="fas fa-robot text-xl"></i>
+                    <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                        <i class="fas fa-robot text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="font-bold">พี่ GY AI</h3>
-                        <p class="text-xs text-rose-100">ผู้ช่วยปรึกษาเรื่องเล็บ</p>
+                        <h3 class="font-bold text-sm">AI Nail Consultant</h3>
+                        <p class="text-[10px] text-rose-100">Powered by Gemini</p>
                     </div>
                 </div>
-                <button onclick="closeModal('ai-modal')" class="text-white/80 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                <button onclick="toggleAIChat()" class="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10"><i class="fas fa-chevron-down"></i></button>
             </div>
             
-            <div id="ai-chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-                <div class="flex gap-3">
-                    <div class="w-8 h-8 bg-rose-500 rounded-full flex items-center justify-center flex-shrink-0">
-                        <i class="fas fa-robot text-white text-xs"></i>
+            <div id="ai-chat-container" class="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+                <div class="flex gap-2">
+                    <div class="w-7 h-7 bg-rose-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-white text-[10px]"></i>
                     </div>
-                    <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm max-w-[80%]">
-                        <p class="text-sm text-gray-700">สวัสดีค่ะ! พี่ GY นะคะ 💅<br><br>มีอะไรให้พี่ช่วยเหลือเรื่องทำเล็บไหมคะ? เช่น:
-                        <br>• เล็บแห้ง/เปราะ แก้ยังไง?
-                        <br>• สไตล์ไหนเข้ากับเรา?
-                        <br>• ดูแลเล็บยังไงให้แข็งแรง?
-                        <br><br>ถามมาได้เลยค่ะ!</p>
+                    <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm max-w-[85%]">
+                        <p class="text-sm text-gray-700">Hi! <br>
+                        <br>- Nail\Gel <br>- Design<br>- Nail Care Tips<br><br>Ask me!</p>
                     </div>
                 </div>
             </div>
             
-            <div class="p-4 border-t bg-white rounded-b-2xl">
-                <div class="flex gap-2 mb-3">
-                    <button onclick="setAIContext('dry')" class="text-xs bg-orange-100 text-orange-600 px-3 py-1 rounded-full hover:bg-orange-200">เล็บแห้ง/เปราะ</button>
-                    <button onclick="setAIContext('design')" class="text-xs bg-pink-100 text-pink-600 px-3 py-1 rounded-full hover:bg-pink-200">แนะนำลาย</button>
-                    <button onclick="setAIContext('care')" class="text-xs bg-green-100 text-green-600 px-3 py-1 rounded-full hover:bg-green-200">การดูแล</button>
+            <div class="p-3 border-t bg-white rounded-b-2xl">
+                <div class="flex gap-1.5 mb-2 overflow-x-auto no-scrollbar">
+                    <button onclick="setAIContext('dry')" class="text-[11px] bg-orange-100 text-orange-600 px-2.5 py-1 rounded-full hover:bg-orange-200 whitespace-nowrap flex-shrink-0">Dry Nails</button>
+                    <button onclick="setAIContext('design')" class="text-[11px] bg-pink-100 text-pink-600 px-2.5 py-1 rounded-full hover:bg-pink-200 whitespace-nowrap flex-shrink-0">Design</button>
+                    <button onclick="setAIContext('care')" class="text-[11px] bg-green-100 text-green-600 px-2.5 py-1 rounded-full hover:bg-green-200 whitespace-nowrap flex-shrink-0">Care Tips</button>
                 </div>
                 <div class="flex gap-2">
-                    <input type="text" id="ai-input" placeholder="พิมพ์คำถาม..." class="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-rose-500" onkeypress="if(event.key==='Enter')sendAIMessage()">
-                    <button onclick="sendAIMessage()" class="bg-rose-500 text-white w-10 h-10 rounded-xl hover:bg-rose-600 flex items-center justify-center">
-                        <i class="fas fa-paper-plane"></i>
+                    <input type="text" id="ai-input" placeholder="Type..." class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-500" onkeypress="if(event.key==='Enter')sendAIMessage()">
+                    <button onclick="sendAIMessage()" class="bg-rose-500 text-white w-9 h-9 rounded-xl hover:bg-rose-600 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-paper-plane text-xs"></i>
                     </button>
                 </div>
             </div>
@@ -1602,6 +1622,124 @@ function showPriceList() {
 // AI NAIL CONSULTANT
 // ============================================
 
+let aiChatOpen = false;
+let aiUnreadCount = 0;
+let aiBubbleDragging = false;
+let aiBubbleStartX = 0, aiBubbleStartY = 0, aiBubbleOrigX = 0, aiBubbleOrigY = 0;
+let aiBubbleMoved = false;
+
+function toggleAIChat() {
+    if (aiBubbleMoved) return;
+    const panel = document.getElementById('ai-panel');
+    aiChatOpen = !aiChatOpen;
+    if (aiChatOpen) {
+        panel.classList.remove('hidden');
+        aiUnreadCount = 0;
+        document.getElementById('ai-badge').classList.add('hidden');
+        const container = document.getElementById('ai-chat-container');
+        container.scrollTop = container.scrollHeight;
+        setTimeout(() => document.getElementById('ai-input').focus(), 100);
+    } else {
+        panel.classList.add('hidden');
+    }
+}
+
+function addAIUnread() {
+    if (!aiChatOpen) {
+        aiUnreadCount++;
+        const badge = document.getElementById('ai-badge');
+        const count = document.getElementById('ai-badge-count');
+        count.textContent = aiUnreadCount > 9 ? '9+' : aiUnreadCount;
+        badge.classList.remove('hidden');
+    }
+}
+
+function aiBubbleTouchStart(e) {
+    const touch = e.touches[0];
+    const bubble = document.getElementById('ai-bubble');
+    aiBubbleDragging = true;
+    aiBubbleMoved = false;
+    aiBubbleStartX = touch.clientX;
+    aiBubbleStartY = touch.clientY;
+    aiBubbleOrigX = bubble.offsetLeft;
+    aiBubbleOrigY = bubble.offsetTop;
+    bubble.classList.add('dragging');
+    bubble.classList.remove('snapping');
+}
+
+function aiBubbleTouchMove(e) {
+    if (!aiBubbleDragging) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const dx = touch.clientX - aiBubbleStartX;
+    const dy = touch.clientY - aiBubbleStartY;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) aiBubbleMoved = true;
+    const bubble = document.getElementById('ai-bubble');
+    const newX = Math.max(0, Math.min(window.innerWidth - 70, aiBubbleOrigX + dx));
+    const newY = Math.max(0, Math.min(window.innerHeight - 70, aiBubbleOrigY + dy));
+    bubble.style.left = newX + 'px';
+    bubble.style.top = newY + 'px';
+    bubble.style.right = 'auto';
+    bubble.style.bottom = 'auto';
+}
+
+function aiBubbleTouchEnd(e) {
+    aiBubbleDragging = false;
+    const bubble = document.getElementById('ai-bubble');
+    bubble.classList.remove('dragging');
+    if (aiBubbleMoved) snapBubbleToEdge(bubble);
+    setTimeout(() => { aiBubbleMoved = false; }, 50);
+}
+
+function aiBubbleMouseDown(e) {
+    if (e.button !== 0) return;
+    const bubble = document.getElementById('ai-bubble');
+    aiBubbleDragging = true;
+    aiBubbleMoved = false;
+    aiBubbleStartX = e.clientX;
+    aiBubbleStartY = e.clientY;
+    aiBubbleOrigX = bubble.offsetLeft;
+    aiBubbleOrigY = bubble.offsetTop;
+    bubble.classList.add('dragging');
+    bubble.classList.remove('snapping');
+
+    const onMove = (ev) => {
+        if (!aiBubbleDragging) return;
+        const dx = ev.clientX - aiBubbleStartX;
+        const dy = ev.clientY - aiBubbleStartY;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) aiBubbleMoved = true;
+        const newX = Math.max(0, Math.min(window.innerWidth - 70, aiBubbleOrigX + dx));
+        const newY = Math.max(0, Math.min(window.innerHeight - 70, aiBubbleOrigY + dy));
+        bubble.style.left = newX + 'px';
+        bubble.style.top = newY + 'px';
+        bubble.style.right = 'auto';
+        bubble.style.bottom = 'auto';
+    };
+    const onUp = () => {
+        aiBubbleDragging = false;
+        bubble.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        if (aiBubbleMoved) snapBubbleToEdge(bubble);
+        setTimeout(() => { aiBubbleMoved = false; }, 50);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+function snapBubbleToEdge(bubble) {
+    bubble.classList.add('snapping');
+    const rect = bubble.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    if (centerX < window.innerWidth / 2) {
+        bubble.style.left = '10px';
+        bubble.style.right = 'auto';
+    } else {
+        bubble.style.left = 'auto';
+        bubble.style.right = '10px';
+    }
+}
+
 let aiContext = { nailCondition: '', preferredStyle: '' };
 
 function setAIContext(type) {
@@ -1639,12 +1777,15 @@ function sendAIMessage() {
         removeTypingIndicator(typingId);
         if (res.status === 'success') {
             addMessageToChat('ai', res.data.advice);
+            addAIUnread();
         } else {
             addMessageToChat('ai', 'ขออภัยค่ะ พี่ GY ไม่เข้าใจคำถาม ลองถามใหม่อีกครั้งนะคะ');
+            addAIUnread();
         }
     }, () => {
         removeTypingIndicator(typingId);
         addMessageToChat('ai', 'ขออภัยค่ะ ระบบมีปัญหาชั่วคราว กรุณาลองใหม่ภายหลัง');
+        addAIUnread();
     });
 }
 

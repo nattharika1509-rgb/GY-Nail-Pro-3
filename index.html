@@ -55,6 +55,8 @@
         #ai-bubble { touch-action: none; transition: none; }
         #ai-bubble.snapping { transition: left 0.3s ease, right 0.3s ease, bottom 0.3s ease; }
         @keyframes aiBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        @keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+        .animate-marquee { animation: marquee 15s linear infinite; }
         #ai-bubble:not(.dragging) > div:first-child { animation: aiBounce 3s ease-in-out infinite; }
         @keyframes contactPop { from { opacity: 0; transform: scale(0) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         #contact-bubble > div:first-child { animation: aiBounce 3s ease-in-out 1.5s infinite; }
@@ -105,6 +107,13 @@
                         <i class="fas fa-door-closed"></i>
                         ปิดรับจอง
                     </div>
+                </div>
+            </div>
+            
+            <!-- Marquee Banner -->
+            <div id="marquee-banner" class="hidden mb-3 overflow-hidden rounded-lg bg-gradient-to-r from-rose-500/90 to-pink-500/90 backdrop-blur-sm py-2 px-3 shadow-lg">
+                <div class="whitespace-nowrap animate-marquee">
+                    <span class="text-white font-medium text-sm" id="marquee-text"></span>
                 </div>
             </div>
             
@@ -705,7 +714,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbxuC67tFEKnKn3EB5GPt4O6lI0FQeATo5SXE0K9l_vSega-Zrerd_s9S_1uzBzEp3VppA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyNRJwDZbCm36vvznTBA0jAX_ogqn5Au5MJ7kuNf1lnSa7WWZDUEl-m1vET9vl343Jqvw/exec";
 
 let settings = {}; 
 let bookings = [];
@@ -822,6 +831,12 @@ function initSuccess(data) {
     
     loadContactChannels();
     initSnowfall();
+    
+    if (settings.marqueeText) {
+        const banner = document.getElementById('marquee-banner');
+        document.getElementById('marquee-text').innerText = settings.marqueeText;
+        banner.classList.remove('hidden');
+    }
     
     if (settings.menu_config && settings.menu_config !== "") {
         try { menuData = JSON.parse(settings.menu_config); } 
@@ -1268,7 +1283,8 @@ function showSettingsModal() {
     const fields = [
         {k: 'shopName', l: 'ชื่อร้าน'},
         {k: 'timeSlots', l: 'รอบเวลา (คั่นด้วย ,)'},
-        {k: 'notifyEmails', l: 'Email แจ้งเตือนช่าง/พนักงาน (คั่นด้วย ,)'}
+        {k: 'notifyEmails', l: 'Email แจ้งเตือนช่าง/พนักงาน (คั่นด้วย ,)'},
+        {k: 'marqueeText', l: 'ข้อความป้ายวิ่ง'}
     ];
     
     let contactChannels = {};

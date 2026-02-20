@@ -711,7 +711,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbyR-xooNCOOmDvKbWQJw1quMI8NdwercVpbUURENaMP/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwcApMaP3ENQk1_ShcRvmO3cRD2NKTNAfqV2tfNo3uscW0kV00YVuvOVe1X_vY-ElaOZA/exec";
 
 let settings = {}; 
 let bookings = [];
@@ -2397,12 +2397,15 @@ function loadContactChannels() {
 // SNOWFALL EFFECT
 // ============================================
 
-const snowCanvas = document.getElementById('snowCanvas');
-const snowCtx = snowCanvas.getContext('2d');
+let snowCanvas, snowCtx;
 let snowflakes = [];
 let snowAnimationId;
 
 function initSnowfall() {
+    snowCanvas = document.getElementById('snowCanvas');
+    if (!snowCanvas) return;
+    snowCtx = snowCanvas.getContext('2d');
+    if (!snowCtx) return;
     resizeSnowCanvas();
     window.addEventListener('resize', resizeSnowCanvas);
     createSnowflakes();
@@ -2410,6 +2413,7 @@ function initSnowfall() {
 }
 
 function resizeSnowCanvas() {
+    if (!snowCanvas) return;
     snowCanvas.width = window.innerWidth;
     snowCanvas.height = window.innerHeight;
 }

@@ -154,7 +154,7 @@ function routeRequest(action, data) {
   const routes = {
     // Core API
     'getPublicSettings': () => getPublicSettings(),
-    'getSettings': () => getPublicSettings(),
+    'getSettings': () => ({ status: 'success', data: getPublicSettings() }),
     'getBookedSlots': () => getBookedSlots(data),
     'submitBooking': () => submitBooking(data),
     'searchBooking': () => searchBooking(data),

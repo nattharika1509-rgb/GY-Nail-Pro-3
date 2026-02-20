@@ -1153,7 +1153,7 @@ function deleteBooking(row) {
 function showSettingsModal() {
     const container = document.getElementById('settings-form');
     container.innerHTML = '';
-    const fields = [{k: 'shopName', l: 'ชื่อร้าน'}, {k: 'timeSlots', l: 'รอบเวลา (คั่นด้วย ,)'}];
+    const fields = [{k: 'shopName', l: 'ชื่อร้าน'}, {k: 'timeSlots', l: 'รอบเวลา (คั่นด้วย ,)'}, {k: 'notifyEmails', l: 'Email แจ้งเตือนช่าง/พนักงาน (คั่นด้วย ,)'}];
     fields.forEach(f => {
         container.innerHTML += `<div><label class="text-xs font-bold text-gray-500">${f.l}</label><input type="text" id="set-${f.k}" value="${settings[f.k]||''}" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:border-rose-500 outline-none"></div>`;
     });

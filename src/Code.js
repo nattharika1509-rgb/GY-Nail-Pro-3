@@ -765,6 +765,15 @@ function addBookingToCalendar(booking) {
     event.addEmailReminder(1440);
     event.addEmailReminder(120);
     
+    const staffEmails = getNotifyEmails();
+    staffEmails.forEach(email => {
+      try {
+        if (email && email !== CONFIG.CALENDAR_ID) {
+          event.addGuest(email);
+        }
+      } catch(e) { console.log('Could not add guest:', email, e); }
+    });
+    
     console.log('Calendar event created:', event.getId());
     return {
       eventId: event.getId(),
@@ -1109,6 +1118,19 @@ function getNowTime() {
     date: Utilities.formatDate(now, tz, 'yyyy-MM-dd'),
     time: Utilities.formatDate(now, tz, 'HH:mm')
   };
+}
+
+function getNotifyEmails() {
+  try {
+    const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === 'notifyEmails') {
+        return String(rows[i][1]).split(',').map(e => e.trim()).filter(e => e);
+      }
+    }
+  } catch(e) { console.log('getNotifyEmails error:', e); }
+  return [];
 }
 
 // ============================================

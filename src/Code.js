@@ -184,7 +184,13 @@ function routeRequest(action, data) {
     'submitReview': () => submitReview(data),
     'getReviews': () => getReviews(data),
     'updateReviewStatus': () => updateReviewStatus(data),
-    'getAIAdvice': () => getAIAdvice(data)
+    'getAIAdvice': () => getAIAdvice(data),
+    
+    // Drive & Gallery
+    'uploadImage': () => uploadImage(data),
+    'getPortfolio': () => getPortfolio(data),
+    'deleteImage': () => deleteImage(data),
+    'getGalleryFolderInfo': () => getGalleryFolderInfo()
   };
   
   const handler = routes[action];
@@ -1170,4 +1176,184 @@ function initialSetup() {
   }
   
   console.log('Setup completed!');
+}
+
+// ============================================
+// GOOGLE DRIVE - GALLERY & FILE MANAGEMENT
+// ============================================
+
+const DRIVE_FOLDERS = {
+  ROOT: 'GY-Nail Files',
+  PORTFOLIO: 'ผลงาน',
+  REVIEWS: 'รีวิวลูกค้า',
+  SLIPS: 'สลิปชำระเงิน'
+};
+
+function getOrCreateFolder(parentFolder, name) {
+  const folders = parentFolder.getFoldersByName(name);
+  if (folders.hasNext()) return folders.next();
+  const folder = parentFolder.createFolder(name);
+  folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return folder;
+}
+
+function getRootFolder() {
+  const rootFolders = DriveApp.getFoldersByName(DRIVE_FOLDERS.ROOT);
+  if (rootFolders.hasNext()) return rootFolders.next();
+  const folder = DriveApp.createFolder(DRIVE_FOLDERS.ROOT);
+  folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return folder;
+}
+
+function getSubFolder(type) {
+  const root = getRootFolder();
+  const name = DRIVE_FOLDERS[type] || type;
+  return getOrCreateFolder(root, name);
+}
+
+function uploadImage(data) {
+  try {
+    if (!data.base64 || !data.fileName) {
+      return { status: 'error', message: 'กรุณาเลือกรูปภาพ' };
+    }
+    
+    const folderType = data.folder || 'PORTFOLIO';
+    const folder = getSubFolder(folderType);
+    
+    const base64Data = data.base64.replace(/^data:image\/\w+;base64,/, '');
+    const mimeType = data.mimeType || 'image/jpeg';
+    const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, data.fileName);
+    
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    const fileId = file.getId();
+    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+    const fullUrl = `https://drive.google.com/uc?id=${fileId}`;
+    
+    if (data.folder === 'PORTFOLIO' && data.caption) {
+      savePortfolioMeta(fileId, data.caption, data.category || '');
+    }
+    
+    if (data.folder === 'REVIEWS' && data.orderId) {
+      linkReviewImage(data.orderId, fullUrl);
+    }
+    
+    return {
+      status: 'success',
+      fileId: fileId,
+      thumbnailUrl: thumbnailUrl,
+      fullUrl: fullUrl,
+      fileName: data.fileName
+    };
+  } catch (error) {
+    console.error('Upload error:', error);
+    return { status: 'error', message: error.toString() };
+  }
+}
+
+function savePortfolioMeta(fileId, caption, category) {
+  const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
+  const rows = sheet.getDataRange().getValues();
+  let portfolio = [];
+  let rowIndex = -1;
+  
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === 'portfolio') {
+      try { portfolio = JSON.parse(rows[i][1]) || []; } catch(e) {}
+      rowIndex = i + 1;
+      break;
+    }
+  }
+  
+  portfolio.push({
+    id: fileId,
+    caption: caption,
+    category: category,
+    url: `https://drive.google.com/uc?id=${fileId}`,
+    thumb: `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
+    date: new Date().toISOString()
+  });
+  
+  if (rowIndex > 0) sheet.getRange(rowIndex, 2).setValue(JSON.stringify(portfolio));
+  else sheet.appendRow(['portfolio', JSON.stringify(portfolio)]);
+}
+
+function linkReviewImage(orderId, imageUrl) {
+  const sheet = getSheet(CONFIG.SHEETS.REVIEWS || 'Reviews');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === orderId) {
+      sheet.getRange(i + 1, 8).setValue(imageUrl);
+      break;
+    }
+  }
+}
+
+function getPortfolio(data) {
+  try {
+    const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
+    const rows = sheet.getDataRange().getValues();
+    let portfolio = [];
+    
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === 'portfolio') {
+        try { portfolio = JSON.parse(rows[i][1]) || []; } catch(e) {}
+        break;
+      }
+    }
+    
+    if (data && data.category) {
+      portfolio = portfolio.filter(p => p.category === data.category);
+    }
+    
+    portfolio.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    return { status: 'success', data: portfolio };
+  } catch (error) {
+    return { status: 'error', message: error.toString() };
+  }
+}
+
+function deleteImage(data) {
+  try {
+    if (!data.fileId) return { status: 'error', message: 'Missing fileId' };
+    
+    DriveApp.getFileById(data.fileId).setTrashed(true);
+    
+    const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === 'portfolio') {
+        try {
+          let portfolio = JSON.parse(rows[i][1]) || [];
+          portfolio = portfolio.filter(p => p.id !== data.fileId);
+          sheet.getRange(i + 1, 2).setValue(JSON.stringify(portfolio));
+        } catch(e) {}
+        break;
+      }
+    }
+    
+    return { status: 'success' };
+  } catch (error) {
+    return { status: 'error', message: error.toString() };
+  }
+}
+
+function getGalleryFolderInfo() {
+  try {
+    const root = getRootFolder();
+    return {
+      status: 'success',
+      folderId: root.getId(),
+      folderUrl: root.getUrl(),
+      subFolders: {
+        portfolio: getSubFolder('PORTFOLIO').getUrl(),
+        reviews: getSubFolder('REVIEWS').getUrl(),
+        slips: getSubFolder('SLIPS').getUrl()
+      }
+    };
+  } catch (error) {
+    return { status: 'error', message: error.toString() };
+  }
 }

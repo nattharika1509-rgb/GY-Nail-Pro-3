@@ -540,34 +540,31 @@
     </div>
 
     <!-- Contact Floating Bubble -->
-    <div id="contact-bubble" class="fixed z-[79] select-none" style="bottom:100px;left:20px;">
-        <div onclick="toggleContactMenu()" class="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform cursor-pointer transition-all duration-300" style="transform: rotate(-90deg);">
-            <i class="fas fa-headset text-white text-xl sm:text-2xl"></i>
+    <div id="contact-bubble" class="fixed z-[79] select-none" style="bottom:90px;left:4 sm:left-5;md:left-20px;">
+        <div id="contact-menu" class="hidden absolute bottom-[70px] left-0 flex flex-col-reverse gap-2 sm:gap-3 items-center" style="transform: translateX(-20%);">
+            <a id="contact-line" href="#" target="_blank" class="w-10 h-10 sm:w-12 sm:h-12 bg-[#06C755] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.0s; opacity: 0;">
+                <i class="fab fa-line text-white text-lg sm:text-xl"></i>
+            </a>
+            <a id="contact-facebook" href="#" target="_blank" class="w-10 h-10 sm:w-12 sm:h-12 bg-[#1877F2] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.08s; opacity: 0;">
+                <i class="fab fa-facebook-f text-white text-base sm:text-lg"></i>
+            </a>
+            <a id="contact-tiktok" href="#" target="_blank" class="w-10 h-10 sm:w-12 sm:h-12 bg-black rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.16s; opacity: 0;">
+                <i class="fab fa-tiktok text-white text-base sm:text-lg"></i>
+            </a>
+            <a id="contact-phone" href="tel:" class="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.24s; opacity: 0;">
+                <i class="fas fa-phone-alt text-white text-base sm:text-lg"></i>
+            </a>
         </div>
-        <div class="text-center mt-1">
-            <span class="text-[10px] text-blue-500 font-medium bg-white/80 px-2 py-0.5 rounded-full shadow-sm">ติดต่อ</span>
+        <div onclick="toggleContactMenu()" class="relative w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform cursor-pointer transition-all duration-300" style="transform: rotate(-90deg);">
+            <i class="fas fa-headset text-white text-lg sm:text-2xl"></i>
         </div>
-        <div id="contact-menu" class="hidden absolute bottom-[70px] left-0 flex flex-col gap-3 items-center" style="transform: translateX(-80%);">
-            <a id="contact-line" href="#" target="_blank" class="w-12 h-12 bg-[#06C755] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.0s; opacity: 0;">
-                <i class="fab fa-line text-white text-xl"></i>
-            </a>
-            <a id="contact-facebook" href="#" target="_blank" class="w-12 h-12 bg-[#1877F2] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.08s; opacity: 0;">
-                <i class="fab fa-facebook-f text-white text-lg"></i>
-            </a>
-            <a id="contact-tiktok" href="#" target="_blank" class="w-12 h-12 bg-black rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.16s; opacity: 0;">
-                <i class="fab fa-tiktok text-white text-lg"></i>
-            </a>
-            <a id="contact-phone" href="tel:" class="w-12 h-12 bg-green-500 rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.24s; opacity: 0;">
-                <i class="fas fa-phone-alt text-white text-lg"></i>
-            </a>
+        <div class="text-center mt-0.5 sm:mt-1">
+            <span class="text-[9px] sm:text-[10px] text-blue-500 font-medium bg-white/80 px-1.5 sm:px-2 py-0.5 rounded-full shadow-sm">ติดต่อ</span>
         </div>
     </div>
 
-    <!-- Snowfall Canvas -->
-    <canvas id="snowCanvas" class="fixed inset-0 z-[1] pointer-events-none"></canvas>
-
     <!-- AI Floating Bubble -->
-    <div id="ai-bubble" class="fixed z-[80] cursor-grab active:cursor-grabbing select-none" style="bottom:100px;right:20px;" ontouchstart="aiBubbleTouchStart(event)" ontouchmove="aiBubbleTouchMove(event)" ontouchend="aiBubbleTouchEnd(event)" onmousedown="aiBubbleMouseDown(event)">
+    <div id="ai-bubble" class="fixed z-[80] cursor-grab active:cursor-grabbing select-none" style="bottom:90px;right:4 sm:right-5;md:right-20px;" ontouchstart="aiBubbleTouchStart(event)" ontouchmove="aiBubbleTouchMove(event)" ontouchend="aiBubbleTouchEnd(event)" onmousedown="aiBubbleMouseDown(event)">
         <div onclick="toggleAIChat()" class="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-rose-500 to-pink-500 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform">
             <i class="fas fa-robot text-white text-xl sm:text-2xl"></i>
             <div id="ai-badge" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
@@ -714,7 +711,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbwOGEZAVZorAN-2IZsxcvYTQF4ONnFXungmTw1UVeoztQ2AZIL55VO1p-MjA74n0vcxpQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwfh3ucjiuIHtJn2RgYgeC1xi2VoWvrstEJk8wO0iBAP_cy2MR6poiq6W0zt2SMs-h0MQ/exec";
 
 let settings = {}; 
 let bookings = [];

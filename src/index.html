@@ -56,7 +56,7 @@
         #ai-bubble.snapping { transition: left 0.3s ease, right 0.3s ease, bottom 0.3s ease; }
         @keyframes aiBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
         @keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
-        .animate-marquee { animation: marquee 15s linear infinite; }
+        .animate-marquee { animation: marquee 12s linear infinite; white-space: nowrap; }
         #ai-bubble:not(.dragging) > div:first-child { animation: aiBounce 3s ease-in-out infinite; }
         @keyframes contactPop { from { opacity: 0; transform: scale(0) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         #contact-bubble > div:first-child { animation: aiBounce 3s ease-in-out 1.5s infinite; }
@@ -88,36 +88,36 @@
     <!-- Header -->
     <header class="bg-gradient-to-r from-rose-400 to-rose-500 text-white shadow-lg sticky top-0 z-50 rounded-b-3xl mb-4">
         <div class="max-w-md md:max-w-2xl lg:max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-2">
-            <div class="flex justify-between items-center mb-4">
-                <div class="flex items-center space-x-2">
-                    <div class="bg-white/20 p-2.5 rounded-full backdrop-blur-sm">
-                        <i class="fas fa-gem text-xl"></i>
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center space-x-2 flex-1 min-w-0">
+                    <div class="bg-white/20 p-2 rounded-full backdrop-blur-sm shrink-0">
+                        <i class="fas fa-gem text-lg"></i>
                     </div>
-                    <div>
-                        <h1 class="leading-tight" id="shopNameHeader" style="font-family:'Fredoka',sans-serif; font-size:1.75rem; font-weight:700; letter-spacing:2px; text-shadow: 2px 2px 4px rgba(0,0,0,0.15);">GY - NAIL</h1>
+                    <div class="min-w-0">
+                        <h1 class="leading-tight" id="shopNameHeader" style="font-family:'Fredoka',sans-serif; font-size:1.5rem; font-weight:700; letter-spacing:2px; text-shadow: 2px 2px 4px rgba(0,0,0,0.15);">GY - NAIL</h1>
                         <p class="text-xs text-rose-100 font-light tracking-wide">จองคิวทำเล็บออนไลน์</p>
                     </div>
                 </div>
-                <div id="shopStatusBadge" class="hidden">
-                    <div id="shopStatusOpen" class="hidden px-4 py-2 rounded-2xl text-sm font-bold flex items-center gap-2 border-2 border-green-300" style="background: linear-gradient(135deg, #22c55e, #16a34a); color: white; box-shadow: 0 4px 15px rgba(34,197,94,0.4), inset 0 1px 0 rgba(255,255,255,0.2);">
-                        <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-white"></span></span>
-                        เปิดรับจอง
+                <div id="shopStatusBadge" class="hidden shrink-0 ml-2">
+                    <div id="shopStatusOpen" class="hidden px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-green-300" style="background: linear-gradient(135deg, #22c55e, #16a34a);">
+                        <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span></span>
+                        เปิด
                     </div>
-                    <div id="shopStatusClosed" class="hidden px-4 py-2 rounded-2xl text-sm font-bold flex items-center gap-2 border-2 border-red-300" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; box-shadow: 0 4px 15px rgba(239,68,68,0.4), inset 0 1px 0 rgba(255,255,255,0.2);">
-                        <i class="fas fa-door-closed"></i>
-                        ปิดรับจอง
+                    <div id="shopStatusClosed" class="hidden px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 border border-red-300" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                        <i class="fas fa-door-closed text-xs"></i>
+                        ปิด
                     </div>
                 </div>
             </div>
             
-            <!-- Marquee Banner -->
-            <div id="marquee-banner" class="hidden mb-3 overflow-hidden rounded-lg bg-gradient-to-r from-rose-500/90 to-pink-500/90 backdrop-blur-sm py-2 px-3 shadow-lg">
-                <div class="whitespace-nowrap animate-marquee">
-                    <span class="text-white font-medium text-sm" id="marquee-text"></span>
+            <!-- Marquee in header -->
+            <div id="marquee-banner" class="hidden mb-3 overflow-hidden rounded-lg bg-white/20 backdrop-blur-sm py-1.5 px-2">
+                <div class="overflow-hidden whitespace-nowrap">
+                    <span class="inline-block animate-marquee text-white text-xs font-medium" id="marquee-text"></span>
                 </div>
             </div>
             
-            <div class="flex text-sm font-medium">
+            <div class="flex text-sm font-medium -mx-4 sm:mx-0">
                 <div onclick="switchTab('booking')" id="tab-booking" class="tab-btn active">
                     <i class="fas fa-calendar-plus mb-1 block"></i> จองคิว
                 </div>
@@ -714,7 +714,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbyNRJwDZbCm36vvznTBA0jAX_ogqn5Au5MJ7kuNf1lnSa7WWZDUEl-m1vET9vl343Jqvw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwruw4R9jGCINoO-el0p5m92xXW6toML03fZbdxC6CGUdIvBdflhfEERHAuQFziJTXDaA/exec";
 
 let settings = {}; 
 let bookings = [];
@@ -834,7 +834,8 @@ function initSuccess(data) {
     
     if (settings.marqueeText) {
         const banner = document.getElementById('marquee-banner');
-        document.getElementById('marquee-text').innerText = settings.marqueeText;
+        const text = settings.marqueeText;
+        document.getElementById('marquee-text').innerText = text + ' • ' + text;
         banner.classList.remove('hidden');
     }
     

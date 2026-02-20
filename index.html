@@ -55,8 +55,8 @@
         #ai-bubble { touch-action: none; transition: none; }
         #ai-bubble.snapping { transition: left 0.3s ease, right 0.3s ease, bottom 0.3s ease; }
         @keyframes aiBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
-        @keyframes marquee { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
-        .animate-marquee { animation: marquee 12s linear infinite; white-space: nowrap; }
+        @keyframes marquee { 0%{transform:translateX(100%)} 100%{transform:translateX(-100%)} }
+        .animate-marquee { animation: marquee 8s linear infinite; white-space: nowrap; }
         #ai-bubble:not(.dragging) > div:first-child { animation: aiBounce 3s ease-in-out infinite; }
         @keyframes contactPop { from { opacity: 0; transform: scale(0) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         #contact-bubble > div:first-child { animation: aiBounce 3s ease-in-out 1.5s infinite; }
@@ -110,14 +110,14 @@
                 </div>
             </div>
             
-            <!-- Marquee in header -->
-            <div id="marquee-banner" class="hidden mb-3 overflow-hidden rounded-lg bg-white/20 backdrop-blur-sm py-1.5 px-2">
+            <!-- Marquee in header - centered -->
+            <div id="marquee-banner" class="hidden mb-3 mx-auto w-3/4 overflow-hidden rounded-full bg-white/20 backdrop-blur-sm py-1">
                 <div class="overflow-hidden whitespace-nowrap">
-                    <span class="inline-block animate-marquee text-white text-xs font-medium" id="marquee-text"></span>
+                    <span class="inline-block animate-marquee text-white text-xs font-medium px-2" id="marquee-text"></span>
                 </div>
             </div>
             
-            <div class="flex text-sm font-medium -mx-4 sm:mx-0">
+            <div class="flex text-sm font-medium -mx-4 sm:mx-0 border-b border-white/20">
                 <div onclick="switchTab('booking')" id="tab-booking" class="tab-btn active">
                     <i class="fas fa-calendar-plus mb-1 block"></i> จองคิว
                 </div>
@@ -714,7 +714,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbwruw4R9jGCINoO-el0p5m92xXW6toML03fZbdxC6CGUdIvBdflhfEERHAuQFziJTXDaA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxhitKL5cWB4_7OTQBkEEAhP3VZjmGr-1BrE-eZJZM3-KArSAKPK71qGZyJ7dMDGrfQTQ/exec";
 
 let settings = {}; 
 let bookings = [];
@@ -834,8 +834,7 @@ function initSuccess(data) {
     
     if (settings.marqueeText) {
         const banner = document.getElementById('marquee-banner');
-        const text = settings.marqueeText;
-        document.getElementById('marquee-text').innerText = text + ' • ' + text;
+        document.getElementById('marquee-text').innerText = settings.marqueeText;
         banner.classList.remove('hidden');
     }
     

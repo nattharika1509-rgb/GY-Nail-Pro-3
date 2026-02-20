@@ -211,6 +211,10 @@ function getPublicSettings() {
 
 function getBookedSlots(data) {
   const date = String(data.date).trim();
+
+  const shopCheck = checkShopAvailability(date);
+  const serverNow = getNowTime();
+
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
   const rows = sheet.getDataRange().getValues();
   const booked = [];
@@ -219,14 +223,9 @@ function getBookedSlots(data) {
     const rowDate = formatDateISO(rows[i][1]);
     const status = rows[i][15];
     
-    const isBlockingStatus = [
-      CONFIG.STATUS.CONFIRMED,
-      CONFIG.STATUS.PAYMENT_UPLOADED,
-      CONFIG.STATUS.IN_SERVICE,
-      CONFIG.STATUS.COMPLETED
-    ].includes(status);
-    
-    if (rowDate === date && isBlockingStatus) {
+    if (status === CONFIG.STATUS.CANCELLED) continue;
+
+    if (rowDate === date) {
       booked.push({
         time: String(rows[i][2]).trim(),
         staffId: rows[i][3],
@@ -236,7 +235,13 @@ function getBookedSlots(data) {
     }
   }
   
-  return booked;
+  return {
+    booked: booked,
+    shopStatus: shopCheck.status === 'ok' ? 'open' : 'closed',
+    shopMessage: shopCheck.message || '',
+    serverDate: serverNow.date,
+    serverTime: serverNow.time
+  };
 }
 
 function submitBooking(data) {
@@ -245,25 +250,50 @@ function submitBooking(data) {
     if (!data[field]) return { status: 'error', message: `Missing: ${field}` };
   }
   
+  const shopCheck = checkShopAvailability(data.date);
+  if (shopCheck.status === 'error') return shopCheck;
+
+  if (isSlotInPast(data.date, data.time)) {
+    return { status: 'error', message: 'เวลานี้ผ่านไปแล้ว กรุณาเลือกเวลาอื่น' };
+  }
+
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
-  
-  // Check for conflicts
   const existingBookings = sheet.getDataRange().getValues();
+
+  const cleanPhone = String(data.phone).replace(/-/g, '');
+
   for (let i = 1; i < existingBookings.length; i++) {
     const rowDate = formatDateISO(existingBookings[i][1]);
     const rowTime = String(existingBookings[i][2]).trim();
+    const rowPhone = String(existingBookings[i][5]).replace(/-/g, '');
     const rowStatus = existingBookings[i][15];
     
+    if (rowStatus === CONFIG.STATUS.CANCELLED) continue;
+
     if (rowDate === data.date && rowTime === data.time) {
       const isBlockingStatus = [
         CONFIG.STATUS.CONFIRMED,
         CONFIG.STATUS.PAYMENT_UPLOADED,
         CONFIG.STATUS.IN_SERVICE,
-        CONFIG.STATUS.COMPLETED
+        CONFIG.STATUS.COMPLETED,
+        CONFIG.STATUS.PENDING_PAYMENT
       ].includes(rowStatus);
       
       if (isBlockingStatus) {
-        return { status: 'error', message: 'เวลานี้ถูกจองและได้รับการอนุมัติแล้ว กรุณาเลือกเวลาอื่น' };
+        return { status: 'error', message: 'เวลานี้ถูกจองแล้ว กรุณาเลือกเวลาอื่น' };
+      }
+    }
+
+    if (rowDate === data.date && rowPhone === cleanPhone) {
+      const activeStatus = [
+        CONFIG.STATUS.CONFIRMED,
+        CONFIG.STATUS.PAYMENT_UPLOADED,
+        CONFIG.STATUS.IN_SERVICE,
+        CONFIG.STATUS.PENDING_PAYMENT
+      ].includes(rowStatus);
+      
+      if (activeStatus) {
+        return { status: 'error', message: 'เบอร์นี้มีคิวจองในวันเดียวกันแล้ว กรุณาตรวจสอบสถานะการจอง' };
       }
     }
   }
@@ -975,6 +1005,50 @@ function formatDateISO(date) {
   if (typeof date === 'string') return date.split('T')[0];
   try { return Utilities.formatDate(new Date(date), Session.getScriptTimeZone(), 'yyyy-MM-dd'); }
   catch (e) { return String(date); }
+}
+
+function checkShopAvailability(dateStr) {
+  const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
+  const data = sheet.getDataRange().getValues();
+  let isOpen = true;
+  let specialDates = [];
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === 'shopOpen') isOpen = data[i][1] === 'true' || data[i][1] === true;
+    if (data[i][0] === 'specialDates') {
+      try { specialDates = JSON.parse(data[i][1]) || []; } catch(e) { specialDates = []; }
+    }
+  }
+
+  const special = specialDates.find(d => d.date === dateStr);
+  if (special && special.status === 'closed') {
+    return { status: 'error', message: 'ร้านปิดในวันที่เลือก' + (special.note ? ': ' + special.note : '') };
+  }
+
+  if (!isOpen && !(special && special.status === 'open')) {
+    return { status: 'error', message: 'ขณะนี้ร้านปิดรับจองชั่วคราว' };
+  }
+
+  return { status: 'ok' };
+}
+
+function isSlotInPast(dateStr, timeStr) {
+  const tz = Session.getScriptTimeZone();
+  const now = new Date();
+  const nowStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  if (dateStr > nowStr) return false;
+  if (dateStr < nowStr) return true;
+  const nowTime = Utilities.formatDate(now, tz, 'HH:mm');
+  return timeStr <= nowTime;
+}
+
+function getNowTime() {
+  const tz = Session.getScriptTimeZone();
+  const now = new Date();
+  return {
+    date: Utilities.formatDate(now, tz, 'yyyy-MM-dd'),
+    time: Utilities.formatDate(now, tz, 'HH:mm')
+  };
 }
 
 // ============================================

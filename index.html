@@ -831,36 +831,56 @@ function fetchAvailableSlots(dateStr) {
     document.getElementById('slotsContainer').classList.add('hidden'); 
     document.getElementById('loadingSlots').classList.remove('hidden'); 
     document.getElementById('selectedTimeInput').value = '';
-    googleScriptRun.getBookedSlots(dateStr, booked => {
+    googleScriptRun.getBookedSlots(dateStr, res => {
         document.getElementById('loadingSlots').classList.add('hidden'); 
         document.getElementById('slotsContainer').classList.remove('hidden');
-        renderSlots(booked);
+
+        if (res.shopStatus === 'closed') {
+            const container = document.getElementById('slotsContainer');
+            container.innerHTML = `
+                <div class="col-span-3 text-center py-6 bg-red-50 rounded-xl border border-red-200">
+                    <i class="fas fa-store-slash text-3xl text-red-400 mb-2"></i>
+                    <p class="text-red-600 font-bold">${res.shopMessage || 'ร้านปิดในวันนี้'}</p>
+                    <p class="text-red-400 text-sm mt-1">กรุณาเลือกวันอื่น</p>
+                </div>`;
+            return;
+        }
+
+        renderSlots(res.booked || [], res.serverDate, res.serverTime, dateStr);
     });
 }
 
-function renderSlots(booked) {
+function renderSlots(booked, serverDate, serverTime, selectedDate) {
     const container = document.getElementById('slotsContainer');
     container.innerHTML = '';
     const slots = (settings.timeSlots || "10:00,11:30,13:00,14:30,16:00,17:30").split(',').map(s=>s.trim());
     
+    const isToday = (selectedDate === serverDate);
+
     const bookedMap = {};
     booked.forEach(b => {
         bookedMap[b.time] = { status: b.status, orderId: b.orderId };
     });
 
+    let availableCount = 0;
+
     slots.forEach(t => {
         const time = t.trim();
         const btn = document.createElement('button'); 
         btn.type = 'button'; 
-        
-        if(bookedMap[time]) {
+
+        if (isToday && time <= serverTime) {
+            btn.disabled = true;
+            btn.className = 'py-3 rounded-xl text-sm bg-gray-100 text-gray-300 cursor-not-allowed border border-gray-200 line-through';
+            btn.innerHTML = `${time} <span class="text-[10px] block">ผ่านแล้ว</span>`;
+        } else if(bookedMap[time]) {
             const bookingInfo = bookedMap[time];
             btn.disabled = true;
             
             if (bookingInfo.status === 'ยืนยันแล้ว' || bookingInfo.status === 'กำลังให้บริการ' || bookingInfo.status === 'เสร็จสิ้น') {
                 btn.className = 'py-3 rounded-xl text-sm bg-red-100 text-red-400 cursor-not-allowed border border-red-200';
                 btn.innerHTML = `${time} <i class="fas fa-lock text-xs ml-1"></i>`;
-            } else if (bookingInfo.status === 'แจ้งชำระแล้ว') {
+            } else if (bookingInfo.status === 'แจ้งชำระแล้ว' || bookingInfo.status === 'รอชำระเงิน') {
                 btn.className = 'py-3 rounded-xl text-sm bg-orange-100 text-orange-500 cursor-not-allowed border border-orange-200';
                 btn.innerHTML = `${time} <i class="fas fa-clock text-xs ml-1"></i>`;
             } else {
@@ -868,6 +888,7 @@ function renderSlots(booked) {
                 btn.textContent = time;
             }
         } else {
+            availableCount++;
             btn.className = 'time-btn py-3 rounded-xl text-sm bg-white text-gray-600 border border-rose-100 hover:border-rose-400 hover:text-rose-500 transition shadow-sm font-medium';
             btn.textContent = time;
             btn.onclick = () => { 
@@ -878,17 +899,23 @@ function renderSlots(booked) {
         }
         container.appendChild(btn);
     });
-    
-    if (booked.length > 0) {
-        const legend = document.createElement('div');
-        legend.className = 'col-span-3 mt-3 p-3 bg-gray-50 rounded-xl text-xs space-y-1';
-        legend.innerHTML = `
-            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-100 border border-red-200 rounded"></div><span class="text-gray-600">อนุมัติแล้ว - จองไม่ได้</span></div>
-            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-orange-100 border border-orange-200 rounded"></div><span class="text-gray-600">รอตรวจสอบ - จองไม่ได้</span></div>
-            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-white border border-rose-100 rounded"></div><span class="text-gray-600">ว่าง - จองได้</span></div>
-        `;
-        container.appendChild(legend);
+
+    if (availableCount === 0) {
+        const msg = document.createElement('div');
+        msg.className = 'col-span-3 text-center py-4 bg-yellow-50 rounded-xl border border-yellow-200 mt-2';
+        msg.innerHTML = '<i class="fas fa-exclamation-circle text-yellow-500 mr-1"></i> <span class="text-yellow-700 text-sm font-medium">คิวเต็มทุกรอบ กรุณาเลือกวันอื่น</span>';
+        container.appendChild(msg);
     }
+    
+    const legend = document.createElement('div');
+    legend.className = 'col-span-3 mt-3 p-3 bg-gray-50 rounded-xl text-xs space-y-1';
+    legend.innerHTML = `
+        <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-100 border border-red-200 rounded"></div><span class="text-gray-600">จองแล้ว - จองไม่ได้</span></div>
+        <div class="flex items-center gap-2"><div class="w-3 h-3 bg-orange-100 border border-orange-200 rounded"></div><span class="text-gray-600">รอตรวจสอบ - จองไม่ได้</span></div>
+        ${isToday ? '<div class="flex items-center gap-2"><div class="w-3 h-3 bg-gray-100 border border-gray-200 rounded"></div><span class="text-gray-600">เวลาผ่านไปแล้ว</span></div>' : ''}
+        <div class="flex items-center gap-2"><div class="w-3 h-3 bg-white border border-rose-100 rounded"></div><span class="text-gray-600">ว่าง - จองได้</span></div>
+    `;
+    container.appendChild(legend);
 }
 
 // Submit Booking
@@ -898,7 +925,11 @@ function handleBooking(e) {
     if(!timeInput.value) return Swal.fire({icon:'warning', title:'กรุณาเลือกเวลา', confirmButtonColor:'#f43f5e'});
     
     if (!shopStatus.isOpen) {
-        return Swal.fire({ icon: 'error', title: 'ร้านปิดรับจอง', html: 'ขออภัย ขณะนี้ร้านปิดรับจองชั่วคราว', confirmButtonColor: '#f43f5e' });
+        const selectedDate = document.getElementById('dateInput').value;
+        const todaySpecial = shopStatus.specialDates.find(d => d.date === selectedDate && d.status === 'open');
+        if (!todaySpecial) {
+            return Swal.fire({ icon: 'error', title: 'ร้านปิดรับจอง', html: 'ขออภัย ขณะนี้ร้านปิดรับจองชั่วคราว', confirmButtonColor: '#f43f5e' });
+        }
     }
     
     const selectedDate = document.getElementById('dateInput').value;

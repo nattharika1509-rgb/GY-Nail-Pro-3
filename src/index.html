@@ -56,6 +56,8 @@
         #ai-bubble.snapping { transition: left 0.3s ease, right 0.3s ease, bottom 0.3s ease; }
         @keyframes aiBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
         #ai-bubble:not(.dragging) > div:first-child { animation: aiBounce 3s ease-in-out infinite; }
+        @keyframes contactPop { from { opacity: 0; transform: scale(0) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        #contact-bubble > div:first-child { animation: aiBounce 3s ease-in-out 1.5s infinite; }
     </style>
 </head>
 <body class="font-sans text-gray-600 min-h-screen flex flex-col">
@@ -528,6 +530,33 @@
         <img id="preview-image" src="" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl">
     </div>
 
+    <!-- Contact Floating Bubble -->
+    <div id="contact-bubble" class="fixed z-[79] select-none" style="bottom:100px;left:20px;">
+        <div onclick="toggleContactMenu()" class="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform cursor-pointer transition-all duration-300" style="transform: rotate(-90deg);">
+            <i class="fas fa-headset text-white text-xl sm:text-2xl"></i>
+        </div>
+        <div class="text-center mt-1">
+            <span class="text-[10px] text-blue-500 font-medium bg-white/80 px-2 py-0.5 rounded-full shadow-sm">ติดต่อ</span>
+        </div>
+        <div id="contact-menu" class="hidden absolute bottom-[70px] left-0 flex flex-col gap-3 items-center" style="transform: translateX(-80%);">
+            <a id="contact-line" href="#" target="_blank" class="w-12 h-12 bg-[#06C755] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.0s; opacity: 0;">
+                <i class="fab fa-line text-white text-xl"></i>
+            </a>
+            <a id="contact-facebook" href="#" target="_blank" class="w-12 h-12 bg-[#1877F2] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.08s; opacity: 0;">
+                <i class="fab fa-facebook-f text-white text-lg"></i>
+            </a>
+            <a id="contact-tiktok" href="#" target="_blank" class="w-12 h-12 bg-black rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.16s; opacity: 0;">
+                <i class="fab fa-tiktok text-white text-lg"></i>
+            </a>
+            <a id="contact-phone" href="tel:" class="w-12 h-12 bg-green-500 rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.24s; opacity: 0;">
+                <i class="fas fa-phone-alt text-white text-lg"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Snowfall Canvas -->
+    <canvas id="snowCanvas" class="fixed inset-0 z-[1] pointer-events-none"></canvas>
+
     <!-- AI Floating Bubble -->
     <div id="ai-bubble" class="fixed z-[80] cursor-grab active:cursor-grabbing select-none" style="bottom:100px;right:20px;" ontouchstart="aiBubbleTouchStart(event)" ontouchmove="aiBubbleTouchMove(event)" ontouchend="aiBubbleTouchEnd(event)" onmousedown="aiBubbleMouseDown(event)">
         <div onclick="toggleAIChat()" class="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-rose-500 to-pink-500 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform">
@@ -790,6 +819,9 @@ window.onload = function() {
 function initSuccess(data) {
     settings = data;
     if(settings.shopName) document.getElementById('shopNameHeader').innerText = settings.shopName;
+    
+    loadContactChannels();
+    initSnowfall();
     
     if (settings.menu_config && settings.menu_config !== "") {
         try { menuData = JSON.parse(settings.menu_config); } 
@@ -1233,10 +1265,31 @@ function deleteBooking(row) {
 function showSettingsModal() {
     const container = document.getElementById('settings-form');
     container.innerHTML = '';
-    const fields = [{k: 'shopName', l: 'ชื่อร้าน'}, {k: 'timeSlots', l: 'รอบเวลา (คั่นด้วย ,)'}, {k: 'notifyEmails', l: 'Email แจ้งเตือนช่าง/พนักงาน (คั่นด้วย ,)'}];
+    const fields = [
+        {k: 'shopName', l: 'ชื่อร้าน'},
+        {k: 'timeSlots', l: 'รอบเวลา (คั่นด้วย ,)'},
+        {k: 'notifyEmails', l: 'Email แจ้งเตือนช่าง/พนักงาน (คั่นด้วย ,)'}
+    ];
+    
+    let contactChannels = {};
+    try { contactChannels = JSON.parse(settings.contactChannels || '{}'); } catch(e) {}
+    
+    const contactFields = [
+        {k: 'line', l: 'LINE URL', icon: 'fab fa-line', color: 'text-[#06C755]'},
+        {k: 'facebook', l: 'Facebook URL', icon: 'fab fa-facebook', color: 'text-[#1877F2]'},
+        {k: 'tiktok', l: 'TikTok URL', icon: 'fab fa-tiktok', color: 'text-gray-800'},
+        {k: 'phone', l: 'เบอร์โทรศัพท์', icon: 'fas fa-phone', color: 'text-green-500'}
+    ];
+    
     fields.forEach(f => {
         container.innerHTML += `<div><label class="text-xs font-bold text-gray-500">${f.l}</label><input type="text" id="set-${f.k}" value="${settings[f.k]||''}" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:border-rose-500 outline-none"></div>`;
     });
+    
+    container.innerHTML += `<div class="border-t pt-3 mt-3"><h4 class="font-bold text-gray-700 text-sm mb-2">ช่องทางติดต่อ</h4></div>`;
+    contactFields.forEach(f => {
+        container.innerHTML += `<div><label class="text-xs font-medium text-gray-500 flex items-center gap-1"><i class="${f.icon} ${f.color}"></i> ${f.l}</label><input type="text" id="set-contact-${f.k}" value="${contactChannels[f.k]||''}" placeholder="${f.k === 'phone' ? '0812345678' : 'https://...'}" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:border-rose-500 outline-none"></div>`;
+    });
+    
     document.getElementById('settings-modal').classList.remove('hidden');
 }
 
@@ -1247,11 +1300,25 @@ function closeModal(id) {
 function saveSettings() {
     const newSet = {};
     document.querySelectorAll('#settings-form input').forEach(inp => { newSet[inp.id.replace('set-', '')] = inp.value; });
-    newSet['menu_config'] = settings.menu_config; 
+    newSet['menu_config'] = settings.menu_config;
+    
+    const contactChannels = {
+        line: newSet.contactLine || '',
+        facebook: newSet.contactFacebook || '',
+        tiktok: newSet.contactTiktok || '',
+        phone: newSet.contactPhone || ''
+    };
+    newSet.contactChannels = JSON.stringify(contactChannels);
+    delete newSet.contactLine;
+    delete newSet.contactFacebook;
+    delete newSet.contactTiktok;
+    delete newSet.contactPhone;
+    
     googleScriptRun.saveSettings(newSet, () => {
         closeModal('settings-modal');
         Swal.fire('Saved', 'บันทึกเรียบร้อย', 'success');
         loadAdminData();
+        loadContactChannels();
     });
 }
 
@@ -2232,6 +2299,117 @@ function openDriveFolder() {
         if (res.status === 'success') window.open(res.folderUrl, '_blank');
         else Swal.fire('Error', 'ไม่สามารถเปิด Drive ได้', 'error');
     });
+}
+
+// ============================================
+// CONTACT CHANNELS
+// ============================================
+
+let contactMenuOpen = false;
+
+function toggleContactMenu() {
+    const menu = document.getElementById('contact-menu');
+    const bubble = document.getElementById('contact-bubble').querySelector('div:first-child');
+    const links = menu.querySelectorAll('a');
+    contactMenuOpen = !contactMenuOpen;
+    
+    if (contactMenuOpen) {
+        menu.classList.remove('hidden');
+        bubble.style.transform = 'rotate(0deg)';
+        links.forEach((link, i) => {
+            link.style.animation = 'none';
+            link.offsetHeight;
+            link.style.animation = `contactPop 0.3s ease forwards ${i * 0.08}s`;
+        });
+    } else {
+        menu.classList.add('hidden');
+        bubble.style.transform = 'rotate(-90deg)';
+    }
+}
+
+function loadContactChannels() {
+    apiCall('getSettings', {}, (res) => {
+        if (res.status === 'success' && res.data.contactChannels) {
+            const channels = res.data.contactChannels;
+            if (channels.line) document.getElementById('contact-line').href = channels.line;
+            if (channels.facebook) document.getElementById('contact-facebook').href = channels.facebook;
+            if (channels.tiktok) document.getElementById('contact-tiktok').href = channels.tiktok;
+            if (channels.phone) document.getElementById('contact-phone').href = 'tel:' + channels.phone;
+        }
+    });
+}
+
+// ============================================
+// SNOWFALL EFFECT
+// ============================================
+
+const snowCanvas = document.getElementById('snowCanvas');
+const snowCtx = snowCanvas.getContext('2d');
+let snowflakes = [];
+let snowAnimationId;
+
+function initSnowfall() {
+    resizeSnowCanvas();
+    window.addEventListener('resize', resizeSnowCanvas);
+    createSnowflakes();
+    animateSnow();
+}
+
+function resizeSnowCanvas() {
+    snowCanvas.width = window.innerWidth;
+    snowCanvas.height = window.innerHeight;
+}
+
+function createSnowflakes() {
+    snowflakes = [];
+    const flakeCount = Math.floor(window.innerWidth / 8);
+    for (let i = 0; i < flakeCount; i++) {
+        snowflakes.push({
+            x: Math.random() * snowCanvas.width,
+            y: Math.random() * snowCanvas.height,
+            r: Math.random() * 3 + 1,
+            d: Math.random() * flakeCount,
+            speed: Math.random() * 1 + 0.5
+        });
+    }
+}
+
+function animateSnow() {
+    snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
+    snowCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    snowCtx.beginPath();
+    
+    for (let i = 0; i < snowflakes.length; i++) {
+        const flake = snowflakes[i];
+        snowCtx.moveTo(flake.x, flake.y);
+        snowCtx.arc(flake.x, flake.y, flake.r, 0, Math.PI * 2, true);
+    }
+    snowCtx.fill();
+    moveSnowflakes();
+    snowAnimationId = requestAnimationFrame(animateSnow);
+}
+
+function moveSnowflakes() {
+    for (let i = 0; i < snowflakes.length; i++) {
+        const flake = snowflakes[i];
+        flake.y += flake.speed;
+        flake.x += Math.sin(flake.d) * 0.5;
+        
+        if (flake.y > snowCanvas.height) {
+            flake.y = -10;
+            flake.x = Math.random() * snowCanvas.width;
+        }
+        if (flake.x > snowCanvas.width) flake.x = 0;
+        if (flake.x < 0) flake.x = snowCanvas.width;
+        flake.d += 0.01;
+    }
+}
+
+function stopSnowfall() {
+    if (snowAnimationId) {
+        cancelAnimationFrame(snowAnimationId);
+        snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
+    }
 }
 </script>
 </body>

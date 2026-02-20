@@ -620,34 +620,18 @@ const defaultMenu = {
 };
 
 // API Functions
-const PUBLIC_ACTIONS = ['getPublicSettings', 'getServices', 'getStaffs', 'getAvailableSlots', 'getBookedSlots', 'test'];
-
 const apiCall = (action, params, onSuccess, onFailure) => {
-    const isPublic = PUBLIC_ACTIONS.includes(action);
-
-    let fetchPromise;
-    if (isPublic) {
-        const queryParams = new URLSearchParams({ action: action });
-        for (const key in params) {
-            if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-                const value = typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key];
-                queryParams.append(key, value);
-            }
+    const queryParams = new URLSearchParams({ action: action });
+    for (const key in params) {
+        if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+            const value = typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key];
+            queryParams.append(key, value);
         }
-        fetchPromise = fetch(`${API_URL}?${queryParams.toString()}`, {
-            method: "GET",
-            redirect: "follow"
-        });
-    } else {
-        fetchPromise = fetch(`${API_URL}?action=${encodeURIComponent(action)}`, {
-            method: "POST",
-            redirect: "follow",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify(params)
-        });
     }
-
-    fetchPromise
+    fetch(`${API_URL}?${queryParams.toString()}`, {
+        method: "GET",
+        redirect: "follow"
+    })
     .then(r => r.json())
     .then(data => {
         if(data.status === 'error' && !data.bookings) {

@@ -123,26 +123,27 @@ function doGet(e) {
   const action = e.parameter.action;
   console.log('[doGet] Action:', action);
   
-  const publicActions = ['getPublicSettings', 'getServices', 'getStaffs', 'getAvailableSlots', 'test'];
-  
-  if (publicActions.includes(action)) {
-    try {
-      return jsonResponse(routeRequest(action, e.parameter));
-    } catch (error) {
-      console.error('[doGet Error]', error);
-      return jsonResponse({ status: 'error', message: error.toString() });
-    }
+  if (!action) {
+    return jsonResponse({
+      status: 'success',
+      message: 'GY-Nail API',
+      version: '3.0',
+      timestamp: new Date().toISOString()
+    });
   }
-  
-  // ถ้าไม่มี action หรือ action ไม่อนุญาต
-  return jsonResponse({
-    status: 'success',
-    message: 'GY-Nail API',
-    version: '3.0',
-    availableActions: publicActions,
-    note: 'For admin actions, use POST method',
-    timestamp: new Date().toISOString()
-  });
+
+  try {
+    const data = {};
+    for (const key in e.parameter) {
+      if (key === 'action') continue;
+      try { data[key] = JSON.parse(e.parameter[key]); }
+      catch (err) { data[key] = e.parameter[key]; }
+    }
+    return jsonResponse(routeRequest(action, data));
+  } catch (error) {
+    console.error('[doGet Error]', error);
+    return jsonResponse({ status: 'error', message: error.toString() });
+  }
 }
 
 // ============================================

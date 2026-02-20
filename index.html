@@ -711,7 +711,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbwcApMaP3ENQk1_ShcRvmO3cRD2NKTNAfqV2tfNo3uscW0kV00YVuvOVe1X_vY-ElaOZA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyVY3r0iUNys8EGlq2MWyeoDDitqCpLSbqkxR9dMCXEM5huS8BKttty8sJ-U7cnCNJ-bg/exec";
 
 let settings = {}; 
 let bookings = [];
@@ -1246,6 +1246,12 @@ function loadAdminData() {
                 if (!isNaN(d)) {
                     formattedDate = d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
                 }
+                if (b.time && b.time.includes('T')) {
+                    const t = new Date(b.time);
+                    if (!isNaN(t)) {
+                        formattedTime = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                    }
+                }
             } catch(e) {}
             item.innerHTML = `
                 <div class="flex justify-between items-start mb-2">
@@ -1666,6 +1672,12 @@ function showPendingApprovals() {
                 const d = new Date(b.date);
                 if (!isNaN(d)) {
                     formattedDate = d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+                }
+                if (b.time && b.time.includes('T')) {
+                    const t = new Date(b.time);
+                    if (!isNaN(t)) {
+                        formattedTime = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                    }
                 }
             } catch(e) {}
             const item = document.createElement('div');

@@ -540,7 +540,7 @@
     </div>
 
     <!-- Contact Floating Bubble -->
-    <div id="contact-bubble" class="fixed z-[79] select-none" style="bottom:110px;left:4 sm:left-20px;">
+    <div id="contact-bubble" class="fixed z-[79] select-none" style="bottom:100px;left:20px;">
         <div id="contact-menu" class="hidden absolute bottom-[70px] left-0 flex flex-col-reverse gap-2 sm:gap-3 items-center" style="transform: translateX(-20%);">
             <a id="contact-line" href="#" target="_blank" class="w-10 h-10 sm:w-12 sm:h-12 bg-[#06C755] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.0s; opacity: 0;">
                 <i class="fab fa-line text-white text-lg sm:text-xl"></i>
@@ -564,7 +564,7 @@
     </div>
 
     <!-- AI Floating Bubble -->
-    <div id="ai-bubble" class="fixed z-[80] cursor-grab active:cursor-grabbing select-none" style="bottom:80px;right:4 sm:right-20px;" ontouchstart="aiBubbleTouchStart(event)" ontouchmove="aiBubbleTouchMove(event)" ontouchend="aiBubbleTouchEnd(event)" onmousedown="aiBubbleMouseDown(event)">
+    <div id="ai-bubble" class="fixed z-[80] cursor-grab active:cursor-grabbing select-none" style="bottom:100px;right:20px;" ontouchstart="aiBubbleTouchStart(event)" ontouchmove="aiBubbleTouchMove(event)" ontouchend="aiBubbleTouchEnd(event)" onmousedown="aiBubbleMouseDown(event)">
         <div onclick="toggleAIChat()" class="relative w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-rose-500 to-pink-500 rounded-full shadow-xl flex items-center justify-center hover:scale-110 transition-transform">
             <i class="fas fa-robot text-white text-xl sm:text-2xl"></i>
             <div id="ai-badge" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
@@ -711,7 +711,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbxDO3BCFp1DEQIxWlLGQ4sh_irhCNjJWbleCr1rsskVWaDZ2yBaC03LzScl-GQpflpoSw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyR-xooNCOOmDvKbWQJw1quMI8NdwercVpbUURENaMP/exec";
 
 let settings = {}; 
 let bookings = [];

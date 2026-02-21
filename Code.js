@@ -569,14 +569,22 @@ function getBookingsByDate(data) {
     const status = rows[i][15];
     
     if (rowDate === date && status !== CONFIG.STATUS.CANCELLED) {
+      let timeVal = rows[i][2];
+      // หากเป็น Date object (กรณี Sheet format เป็น Time) ให้แปลงเป็น HH:mm
+      if (timeVal instanceof Date) {
+        timeVal = Utilities.formatDate(timeVal, Session.getScriptTimeZone(), 'HH:mm');
+      } else {
+        timeVal = String(timeVal || '').trim();
+      }
+
       bookings.push({
-        orderId: rows[i][0], time: rows[i][2], service: rows[i][7],
+        orderId: rows[i][0], time: timeVal, service: rows[i][7],
         customerName: rows[i][4], status: status
       });
     }
   }
   
-  bookings.sort((a, b) => a.time.localeCompare(b.time));
+  bookings.sort((a, b) => String(a.time).localeCompare(String(b.time)));
   return { status: 'success', data: bookings };
 }
 

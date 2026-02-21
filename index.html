@@ -542,9 +542,6 @@
     <!-- Contact Floating Bubble -->
     <div id="contact-bubble" class="fixed z-[79] select-none" style="bottom:100px;left:20px;">
         <div id="contact-menu" class="hidden absolute bottom-[70px] left-0 flex flex-col-reverse gap-2 sm:gap-3 items-center" style="transform: translateX(-20%);">
-            <a id="contact-line" href="#" target="_blank" class="w-10 h-10 sm:w-12 sm:h-12 bg-[#06C755] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.0s; opacity: 0;">
-                <i class="fab fa-line text-white text-lg sm:text-xl"></i>
-            </a>
             <a id="contact-facebook" href="#" target="_blank" class="w-10 h-10 sm:w-12 sm:h-12 bg-[#1877F2] rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform" style="animation: contactPop 0.3s ease forwards; animation-delay: 0.08s; opacity: 0;">
                 <i class="fab fa-facebook-f text-white text-base sm:text-lg"></i>
             </a>
@@ -1319,7 +1316,6 @@ function showSettingsModal() {
     try { contactChannels = JSON.parse(settings.contactChannels || '{}'); } catch(e) {}
     
     const contactFields = [
-        {k: 'line', l: 'LINE URL', icon: 'fab fa-line', color: 'text-[#06C755]'},
         {k: 'facebook', l: 'Facebook URL', icon: 'fab fa-facebook', color: 'text-[#1877F2]'},
         {k: 'tiktok', l: 'TikTok URL', icon: 'fab fa-tiktok', color: 'text-gray-800'},
         {k: 'phone', l: 'เบอร์โทรศัพท์', icon: 'fas fa-phone', color: 'text-green-500'}
@@ -1349,7 +1345,6 @@ function saveSettings() {
     newSet['menu_config'] = settings.menu_config;
     
     const contactChannels = {
-        line: newSet['contact-line'] || '',
         facebook: newSet['contact-facebook'] || '',
         tiktok: newSet['contact-tiktok'] || '',
         phone: newSet['contact-phone'] || ''
@@ -1357,7 +1352,6 @@ function saveSettings() {
     newSet.contactChannels = JSON.stringify(contactChannels);
     
     // Clean up temporary keys
-    delete newSet['contact-line'];
     delete newSet['contact-facebook'];
     delete newSet['contact-tiktok'];
     delete newSet['contact-phone'];
@@ -2407,11 +2401,6 @@ function loadContactChannels() {
             let channels = res.data.contactChannels;
             if (typeof channels === 'string') {
                 try { channels = JSON.parse(channels); } catch(e) { console.error("Error parsing contactChannels", e); return; }
-            }
-            if (channels.line) {
-                const el = document.getElementById('contact-line');
-                el.href = channels.line;
-                el.target = "_blank";
             }
             if (channels.facebook) {
                 const el = document.getElementById('contact-facebook');

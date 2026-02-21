@@ -1339,20 +1339,24 @@ function closeModal(id) {
 
 function saveSettings() {
     const newSet = {};
-    document.querySelectorAll('#settings-form input').forEach(inp => { newSet[inp.id.replace('set-', '')] = inp.value; });
+    document.querySelectorAll('#settings-form input').forEach(inp => { 
+        newSet[inp.id.replace('set-', '')] = inp.value; 
+    });
     newSet['menu_config'] = settings.menu_config;
     
     const contactChannels = {
-        line: newSet.contactLine || '',
-        facebook: newSet.contactFacebook || '',
-        tiktok: newSet.contactTiktok || '',
-        phone: newSet.contactPhone || ''
+        line: newSet['contact-line'] || '',
+        facebook: newSet['contact-facebook'] || '',
+        tiktok: newSet['contact-tiktok'] || '',
+        phone: newSet['contact-phone'] || ''
     };
     newSet.contactChannels = JSON.stringify(contactChannels);
-    delete newSet.contactLine;
-    delete newSet.contactFacebook;
-    delete newSet.contactTiktok;
-    delete newSet.contactPhone;
+    
+    // Clean up temporary keys
+    delete newSet['contact-line'];
+    delete newSet['contact-facebook'];
+    delete newSet['contact-tiktok'];
+    delete newSet['contact-phone'];
     
     googleScriptRun.saveSettings(newSet, () => {
         closeModal('settings-modal');

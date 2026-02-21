@@ -762,39 +762,38 @@ const defaultMenu = {
 
 // API Functions
 const apiCall = (action, params, onSuccess, onFailure) => {
-    const queryParams = new URLSearchParams({ action: action });
-    // Force POST for actions with potentially large payloads
-    const isLargePayload = params.base64 || params.imageData || action === 'saveSettings';
+    // ใช้ POST เป็นหลักสำหรับความเสถียร (ยกเว้น getPublicSettings ตอนโหลดหน้าแรก)
+    const isPost = action !== 'getPublicSettings';
     
     let fetchPromise;
-    if (isLargePayload) {
-        // For POST, we still put action in the query params so GAS can read it easily via e.parameter.action
+    if (isPost) {
         fetchPromise = fetch(`${API_URL}?action=${encodeURIComponent(action)}`, {
             method: "POST",
             body: JSON.stringify(params),
             redirect: "follow"
-            // Mode "no-cors" is removed to try and read response if possible, 
-            // but if it fails due to CORS, we'll fall back or the assumption is it worked.
-        }).then(r => r.json()).catch(() => {
-            // Fallback for when CORS blocks reading the response from a POST
-            return { status: 'success', message: 'Assume success on POST' };
+        }).then(r => {
+            if (!r.ok) throw new Error(`HTTP Error: ${r.status}`);
+            return r.json();
         });
     } else {
+        const queryParams = new URLSearchParams({ action: action });
         for (const key in params) {
-            if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
-                const value = typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key];
-                queryParams.append(key, value);
+            if (params[key] !== undefined && params[key] !== null) {
+                queryParams.append(key, typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key]);
             }
         }
         fetchPromise = fetch(`${API_URL}?${queryParams.toString()}`, {
             method: "GET",
             redirect: "follow"
-        }).then(r => r.json());
+        }).then(r => {
+            if (!r.ok) throw new Error(`HTTP Error: ${r.status}`);
+            return r.json();
+        });
     }
 
     fetchPromise
     .then(data => {
-        if(data.status === 'error' && !data.bookings) {
+        if(data.status === 'error') {
             if(onFailure) onFailure(data.message);
             else Swal.fire('Error', data.message || 'System Error', 'error');
         } else {
@@ -802,13 +801,18 @@ const apiCall = (action, params, onSuccess, onFailure) => {
         }
     })
     .catch(e => {
-        console.error(`Fetch failed for ${action}`, e);
+        console.error(`[API Error] Action: ${action}`, e);
         if(action === 'getPublicSettings') {
             document.getElementById('loader-icon').classList.add('hidden');
             document.getElementById('loader-error').classList.remove('hidden');
         } else {
-            Swal.fire({ icon: 'error', title: 'การเชื่อมต่อขัดข้อง', text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', confirmButtonColor: '#f43f5e' });
-            if (onFailure) onFailure("Connection failed");
+            Swal.fire({ 
+                icon: 'error', 
+                title: 'การเชื่อมต่อขัดข้อง', 
+                html: `ไม่สามารถติดต่อเซิร์ฟเวอร์ได้<br><small class="text-gray-400">(${e.message})</small>`, 
+                confirmButtonColor: '#f43f5e' 
+            });
+            if (onFailure) onFailure(e.message);
         }
     });
 };

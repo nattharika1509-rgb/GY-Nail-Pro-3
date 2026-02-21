@@ -625,41 +625,49 @@ function getCustomerProfile(data) {
 }
 
 function getRevenueReport(data) {
-  const { startDate, endDate } = data;
-  const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
-  const rows = sheet.getDataRange().getValues();
-  
-  const report = {
-    daily: {},
-    byService: {},
-    byStaff: {}
-  };
-  
-  for (let i = 1; i < rows.length; i++) {
-    const date = formatDateISO(rows[i][1]);
-    const status = rows[i][15];
-    const staffId = rows[i][3] || 'Unassigned';
-    const service = rows[i][7] || 'Unknown';
-    const price = parseFloat(rows[i][14]) || 0;
+  try {
+    const { startDate, endDate } = data || {};
+    const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
+    const rows = sheet.getDataRange().getValues();
     
-    if (status !== CONFIG.STATUS.COMPLETED && status !== CONFIG.STATUS.CONFIRMED) continue;
-    if (startDate && date < startDate) continue;
-    if (endDate && date > endDate) continue;
+    const report = {
+      daily: {},
+      byService: {},
+      byStaff: {}
+    };
     
-    // Daily Revenue
-    if (!report.daily[date]) report.daily[date] = 0;
-    report.daily[date] += price;
+    for (let i = 1; i < rows.length; i++) {
+      let dateRaw = rows[i][1];
+      if (!dateRaw) continue;
+      
+      const date = formatDateISO(dateRaw);
+      const status = rows[i][15];
+      const staffId = rows[i][3] || 'ไม่ระบุช่าง';
+      const service = rows[i][7] || 'ไม่ระบุบริการ';
+      const price = parseFloat(rows[i][14]) || 0;
+      
+      if (status !== CONFIG.STATUS.COMPLETED && status !== CONFIG.STATUS.CONFIRMED) continue;
+      if (startDate && date < startDate) continue;
+      if (endDate && date > endDate) continue;
+      
+      // Daily Revenue
+      if (!report.daily[date]) report.daily[date] = 0;
+      report.daily[date] += price;
+      
+      // By Service
+      if (!report.byService[service]) report.byService[service] = 0;
+      report.byService[service] += price;
+      
+      // By Staff
+      if (!report.byStaff[staffId]) report.byStaff[staffId] = 0;
+      report.byStaff[staffId] += price;
+    }
     
-    // By Service
-    if (!report.byService[service]) report.byService[service] = 0;
-    report.byService[service] += price;
-    
-    // By Staff
-    if (!report.byStaff[staffId]) report.byStaff[staffId] = 0;
-    report.byStaff[staffId] += price;
+    return { status: 'success', data: report };
+  } catch (error) {
+    console.error('getRevenueReport error:', error);
+    return { status: 'error', message: error.toString() };
   }
-  
-  return { status: 'success', data: report };
 }
 
 function getDashboardStats(data) {

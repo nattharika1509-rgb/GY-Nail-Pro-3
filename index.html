@@ -1232,7 +1232,20 @@ function loadAdminData() {
         }
         list.innerHTML = '';
         if(bookings.length === 0) { list.innerHTML = '<div class="text-center mt-10 text-gray-400">ไม่มีรายการจอง</div>'; return; }
-        bookings.forEach(b => {
+        // กรองเฉพาะรายการที่ยังไม่ได้จัดการ (เช่น รอชำระเงิน หรือ แจ้งชำระแล้ว)
+        // รายการที่ 'ยืนยันแล้ว', 'ยกเลิก', 'เสร็จสิ้น' จะไม่แสดงในรายการจองล่าสุด
+        const pendingBookings = bookings.filter(b => 
+            b.status !== 'ยืนยันแล้ว' && 
+            b.status !== 'ยกเลิก' && 
+            b.status !== 'เสร็จสิ้น'
+        );
+
+        if(pendingBookings.length === 0) { 
+            list.innerHTML = '<div class="text-center mt-10 text-gray-400">ไม่มีรายการจองที่ต้องจัดการ</div>'; 
+            return; 
+        }
+
+        pendingBookings.forEach(b => {
             let stColor = 'text-yellow-500';
             if(b.status === 'ยืนยันแล้ว') stColor = 'text-green-500';
             if(b.status === 'ยกเลิก') stColor = 'text-red-500';

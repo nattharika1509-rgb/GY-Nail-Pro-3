@@ -2404,11 +2404,28 @@ function toggleContactMenu() {
 function loadContactChannels() {
     apiCall('getSettings', {}, (res) => {
         if (res.status === 'success' && res.data.contactChannels) {
-            const channels = res.data.contactChannels;
-            if (channels.line) document.getElementById('contact-line').href = channels.line;
-            if (channels.facebook) document.getElementById('contact-facebook').href = channels.facebook;
-            if (channels.tiktok) document.getElementById('contact-tiktok').href = channels.tiktok;
-            if (channels.phone) document.getElementById('contact-phone').href = 'tel:' + channels.phone;
+            let channels = res.data.contactChannels;
+            if (typeof channels === 'string') {
+                try { channels = JSON.parse(channels); } catch(e) { console.error("Error parsing contactChannels", e); return; }
+            }
+            if (channels.line) {
+                const el = document.getElementById('contact-line');
+                el.href = channels.line;
+                el.target = "_blank";
+            }
+            if (channels.facebook) {
+                const el = document.getElementById('contact-facebook');
+                el.href = channels.facebook;
+                el.target = "_blank";
+            }
+            if (channels.tiktok) {
+                const el = document.getElementById('contact-tiktok');
+                el.href = channels.tiktok;
+                el.target = "_blank";
+            }
+            if (channels.phone) {
+                document.getElementById('contact-phone').href = 'tel:' + channels.phone;
+            }
         }
     });
 }

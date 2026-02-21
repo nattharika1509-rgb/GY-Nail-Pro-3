@@ -44,8 +44,7 @@ const CONFIG = {
     CUSTOMERS: 'Customers',
     SERVICE_RECORDS: 'ServiceRecords',
     SETTINGS: 'Settings',
-    REVIEWS: 'Reviews',
-    PORTFOLIO: 'Portfolio'
+    REVIEWS: 'Reviews'
   },
   
   STATUS: {
@@ -312,6 +311,7 @@ function submitBooking(data) {
   // --- CRM INTEGRATION: Auto Update/Create Customer ---
   let customerId = '-';
   try {
+    const cleanPhone = String(data.phone).replace(/-/g, '');
     const customerSheet = getSheet(CONFIG.SHEETS.CUSTOMERS);
     const customers = customerSheet.getDataRange().getValues();
     let foundIdx = -1;
@@ -325,13 +325,11 @@ function submitBooking(data) {
     }
     
     if (foundIdx > 0) {
-      // Existing customer: Update visit count (logic could be more complex based on status)
       const currentVisits = parseInt(customers[foundIdx-1][10]) || 0;
       customerSheet.getRange(foundIdx, 11).setValue(currentVisits + 1);
       customerSheet.getRange(foundIdx, 14).setValue(new Date());
       customerSheet.getRange(foundIdx, 16).setValue(new Date());
     } else {
-      // New customer
       customerId = 'C-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMddHHmm');
       customerSheet.appendRow([
         customerId, data.phone, data.name, '-', '-', '-', '-', '-', '-', '-', 1, 0, new Date(), '-', new Date(), new Date()
@@ -570,13 +568,12 @@ function getBookingsByDate(data) {
     
     if (rowDate === date && status !== CONFIG.STATUS.CANCELLED) {
       let timeVal = rows[i][2];
-      // หากเป็น Date object (กรณี Sheet format เป็น Time) ให้แปลงเป็น HH:mm
+      // Check if Date object
       if (timeVal instanceof Date) {
         timeVal = Utilities.formatDate(timeVal, Session.getScriptTimeZone(), 'HH:mm');
       } else {
         timeVal = String(timeVal || '').trim();
       }
-
       bookings.push({
         orderId: rows[i][0], time: timeVal, service: rows[i][7],
         customerName: rows[i][4], status: status
@@ -633,28 +630,26 @@ function getCustomerProfile(data) {
 }
 
 function getRevenueReport(data) {
-  try {
-    const { startDate, endDate } = data || {};
-    const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
-    const rows = sheet.getDataRange().getValues();
-    const report = [];
+  const { startDate, endDate } = data;
+  const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
+  const rows = sheet.getDataRange().getValues();
+  const report = {};
+  
+  for (let i = 1; i < rows.length; i++) {
+    const date = formatDateISO(rows[i][1]);
+    const status = rows[i][15];
+    const price = parseFloat(rows[i][14]) || 0;
     
-    for (let i = 1; i < rows.length; i++) {
-      const date = formatDateISO(rows[i][1]);
-      const status = rows[i][15];
-      const price = parseFloat(rows[i][14]) || 0;
-      
-      if (status !== CONFIG.STATUS.COMPLETED && status !== CONFIG.STATUS.CONFIRMED) continue;
-      if (startDate && date < startDate) continue;
-      if (endDate && date > endDate) continue;
-      
-      report.push({ date, price });
-    }
+    if (status !== CONFIG.STATUS.COMPLETED) continue;
+    if (startDate && date < startDate) continue;
+    if (endDate && date > endDate) continue;
     
-    return { status: 'success', data: report };
-  } catch (error) {
-    return { status: 'error', message: error.toString() };
+    if (!report[date]) report[date] = { date: date, revenue: 0, count: 0 };
+    report[date].revenue += price;
+    report[date].count += 1;
   }
+  
+  return { status: 'success', data: Object.values(report).sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
 function getDashboardStats(data) {
@@ -897,13 +892,13 @@ function sendBookingReminders() {
 // ============================================
 
 function submitReview(data) {
-  const { orderId, rating, review, customerName, imageUrl } = data;
+  const { orderId, rating, review, customerName } = data;
   
   if (!orderId || !rating) {
     return { status: 'error', message: 'กรุณาระบุรหัสจองและคะแนน' };
   }
   
-  const sheet = getSheet(CONFIG.SHEETS.REVIEWS || 'Reviews');
+  const sheet = getSheet('Reviews');
   
   // Check if already reviewed
   const rows = sheet.getDataRange().getValues();
@@ -919,15 +914,14 @@ function submitReview(data) {
     parseInt(rating),
     review || '',
     new Date(),
-    'pending', // status: pending, approved, rejected
-    imageUrl || ''
+    'pending' // status: pending, approved, rejected
   ]);
   
   return { status: 'success', message: 'ขอบคุณสำหรับรีวิวค่ะ' };
 }
 
 function seedReviews() {
-  const sheet = getSheet(CONFIG.SHEETS.REVIEWS || 'Reviews');
+  const sheet = getSheet('Reviews');
   const names = [
     'คุณแพร','คุณมิ้นท์','คุณเบลล์','คุณไอซ์','คุณนุ่น','คุณปิ่น','คุณเฟิร์น','คุณจูน',
     'คุณออม','คุณแนน','คุณพลอย','คุณกิ๊ฟ','คุณเจน','คุณนิว','คุณมายด์','คุณแก้ม',
@@ -946,6 +940,7 @@ function seedReviews() {
     'ช่างน่ารัก คุยสนุก ฝีมือดี','เล็บสวยทุกครั้งที่มาค่ะ','ราคาสมเหตุสมผล คุ้มค่ามาก',
     'ทำเล็บเจลใส สวยวิ้งมากค่ะ','ประทับใจบริการมากค่ะ จะกลับมาอีก','ฝีมือระดับมืออาชีพเลยค่ะ สุดปัง'
   ];
+  const services = ['ทำเจลสี','เพ้นท์ลาย','ต่อเล็บเจล','ทำเจลใส','ถอดเล็บ+ทำใหม่','เจล+เพชร','อะคริลิค'];
   
   for (let i = 0; i < 30; i++) {
     const daysAgo = Math.floor(Math.random() * 60);
@@ -959,8 +954,7 @@ function seedReviews() {
       rating,
       reviews[i],
       date,
-      'approved',
-      ''
+      'approved'
     ]);
   }
   
@@ -970,7 +964,7 @@ function seedReviews() {
 
 function getReviews(data) {
   const { status = 'approved', limit = 10 } = data;
-  const sheet = getSheet(CONFIG.SHEETS.REVIEWS || 'Reviews');
+  const sheet = getSheet('Reviews');
   const rows = sheet.getDataRange().getValues();
   const reviews = [];
   
@@ -982,8 +976,7 @@ function getReviews(data) {
         rating: rows[i][2],
         review: rows[i][3],
         date: rows[i][4],
-        status: rows[i][5],
-        imageUrl: rows[i][6] || ''
+        status: rows[i][5]
       });
     }
   }
@@ -1143,8 +1136,7 @@ function setupSheetHeaders(sheet, sheetName) {
     [CONFIG.SHEETS.CUSTOMERS]: ['CustomerID', 'Phone', 'Name', 'LineUserID', 'Birthday', 'HairType', 'HairCondition', 'Allergies', 'Preferences', 'History', 'TotalVisits', 'TotalSpent', 'LastVisit', 'Notes', 'CreatedAt', 'UpdatedAt'],
     [CONFIG.SHEETS.SERVICE_RECORDS]: ['RecordID', 'OrderID', 'Date', 'StaffID', 'CustomerID', 'ServicesDone', 'ProductsUsed', 'BeforePhotoURL', 'AfterPhotoURL', 'CustomerFeedback', 'StaffNotes', 'NextAppointment'],
     [CONFIG.SHEETS.SETTINGS]: ['Key', 'Value'],
-    [CONFIG.SHEETS.REVIEWS]: ['OrderID', 'CustomerName', 'Rating', 'Review', 'Date', 'Status', 'ImageURL'],
-    [CONFIG.SHEETS.PORTFOLIO]: ['FileID', 'Caption', 'Category', 'URL', 'Thumb', 'Date']
+    [CONFIG.SHEETS.REVIEWS]: ['OrderID', 'CustomerName', 'Rating', 'Review', 'Date', 'Status']
   };
   
   const header = headers[sheetName];

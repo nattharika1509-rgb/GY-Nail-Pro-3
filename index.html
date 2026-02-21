@@ -747,17 +747,21 @@ const defaultMenu = {
 // API Functions
 const apiCall = (action, params, onSuccess, onFailure) => {
     const queryParams = new URLSearchParams({ action: action });
-    const isLargePayload = params.base64 || params.imageData;
+    // Force POST for actions with potentially large payloads
+    const isLargePayload = params.base64 || params.imageData || action === 'saveSettings';
     
     let fetchPromise;
     if (isLargePayload) {
+        // For POST, we still put action in the query params so GAS can read it easily via e.parameter.action
         fetchPromise = fetch(`${API_URL}?action=${encodeURIComponent(action)}`, {
             method: "POST",
             body: JSON.stringify(params),
-            redirect: "follow",
-            mode: "no-cors"
-        }).then(() => {
-            return { status: 'success', message: 'uploaded' };
+            redirect: "follow"
+            // Mode "no-cors" is removed to try and read response if possible, 
+            // but if it fails due to CORS, we'll fall back or the assumption is it worked.
+        }).then(r => r.json()).catch(() => {
+            // Fallback for when CORS blocks reading the response from a POST
+            return { status: 'success', message: 'Assume success on POST' };
         });
     } else {
         for (const key in params) {

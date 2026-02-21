@@ -44,7 +44,8 @@ const CONFIG = {
     CUSTOMERS: 'Customers',
     SERVICE_RECORDS: 'ServiceRecords',
     SETTINGS: 'Settings',
-    REVIEWS: 'Reviews'
+    REVIEWS: 'Reviews',
+    PORTFOLIO: 'Portfolio'
   },
   
   STATUS: {
@@ -308,13 +309,46 @@ function submitBooking(data) {
   
   const orderId = 'GY-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMddHHmmss');
   
+  // --- CRM INTEGRATION: Auto Update/Create Customer ---
+  let customerId = '-';
+  try {
+    const customerSheet = getSheet(CONFIG.SHEETS.CUSTOMERS);
+    const customers = customerSheet.getDataRange().getValues();
+    let foundIdx = -1;
+    
+    for (let i = 1; i < customers.length; i++) {
+      if (String(customers[i][1]).replace(/-/g, '') === cleanPhone) {
+        foundIdx = i + 1;
+        customerId = customers[i][0];
+        break;
+      }
+    }
+    
+    if (foundIdx > 0) {
+      // Existing customer: Update visit count (logic could be more complex based on status)
+      const currentVisits = parseInt(customers[foundIdx-1][10]) || 0;
+      customerSheet.getRange(foundIdx, 11).setValue(currentVisits + 1);
+      customerSheet.getRange(foundIdx, 14).setValue(new Date());
+      customerSheet.getRange(foundIdx, 16).setValue(new Date());
+    } else {
+      // New customer
+      customerId = 'C-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMddHHmm');
+      customerSheet.appendRow([
+        customerId, data.phone, data.name, '-', '-', '-', '-', '-', '-', '-', 1, 0, new Date(), '-', new Date(), new Date()
+      ]);
+    }
+  } catch (crmError) {
+    console.error('CRM Error:', crmError);
+  }
+  // ----------------------------------------------------
+
   sheet.appendRow([
     orderId, data.date, data.time, data.staffId || '-',
     data.name, data.phone, data.service, data.service,
     data.design || '-', data.extension || '-', 60,
     data.details || '-', data.locationType || 'ทำที่ร้าน',
     data.address || '-', data.price || '0',
-    CONFIG.STATUS.PENDING_PAYMENT, '', new Date(), '', '', '', ''
+    CONFIG.STATUS.PENDING_PAYMENT, '', new Date(), customerId, '', '', ''
   ]);
   
   return { status: 'success', orderId: orderId };
@@ -594,23 +628,38 @@ function getRevenueReport(data) {
   const { startDate, endDate } = data;
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
   const rows = sheet.getDataRange().getValues();
-  const report = {};
+  
+  const report = {
+    daily: {},
+    byService: {},
+    byStaff: {}
+  };
   
   for (let i = 1; i < rows.length; i++) {
     const date = formatDateISO(rows[i][1]);
     const status = rows[i][15];
+    const staffId = rows[i][3] || 'Unassigned';
+    const service = rows[i][7] || 'Unknown';
     const price = parseFloat(rows[i][14]) || 0;
     
-    if (status !== CONFIG.STATUS.COMPLETED) continue;
+    if (status !== CONFIG.STATUS.COMPLETED && status !== CONFIG.STATUS.CONFIRMED) continue;
     if (startDate && date < startDate) continue;
     if (endDate && date > endDate) continue;
     
-    if (!report[date]) report[date] = { date: date, revenue: 0, count: 0 };
-    report[date].revenue += price;
-    report[date].count += 1;
+    // Daily Revenue
+    if (!report.daily[date]) report.daily[date] = 0;
+    report.daily[date] += price;
+    
+    // By Service
+    if (!report.byService[service]) report.byService[service] = 0;
+    report.byService[service] += price;
+    
+    // By Staff
+    if (!report.byStaff[staffId]) report.byStaff[staffId] = 0;
+    report.byStaff[staffId] += price;
   }
   
-  return { status: 'success', data: Object.values(report).sort((a, b) => a.date.localeCompare(b.date)) };
+  return { status: 'success', data: report };
 }
 
 function getDashboardStats(data) {
@@ -853,13 +902,13 @@ function sendBookingReminders() {
 // ============================================
 
 function submitReview(data) {
-  const { orderId, rating, review, customerName } = data;
+  const { orderId, rating, review, customerName, imageUrl } = data;
   
   if (!orderId || !rating) {
     return { status: 'error', message: 'กรุณาระบุรหัสจองและคะแนน' };
   }
   
-  const sheet = getSheet('Reviews');
+  const sheet = getSheet(CONFIG.SHEETS.REVIEWS || 'Reviews');
   
   // Check if already reviewed
   const rows = sheet.getDataRange().getValues();
@@ -875,14 +924,15 @@ function submitReview(data) {
     parseInt(rating),
     review || '',
     new Date(),
-    'pending' // status: pending, approved, rejected
+    'pending', // status: pending, approved, rejected
+    imageUrl || ''
   ]);
   
   return { status: 'success', message: 'ขอบคุณสำหรับรีวิวค่ะ' };
 }
 
 function seedReviews() {
-  const sheet = getSheet('Reviews');
+  const sheet = getSheet(CONFIG.SHEETS.REVIEWS || 'Reviews');
   const names = [
     'คุณแพร','คุณมิ้นท์','คุณเบลล์','คุณไอซ์','คุณนุ่น','คุณปิ่น','คุณเฟิร์น','คุณจูน',
     'คุณออม','คุณแนน','คุณพลอย','คุณกิ๊ฟ','คุณเจน','คุณนิว','คุณมายด์','คุณแก้ม',
@@ -901,7 +951,6 @@ function seedReviews() {
     'ช่างน่ารัก คุยสนุก ฝีมือดี','เล็บสวยทุกครั้งที่มาค่ะ','ราคาสมเหตุสมผล คุ้มค่ามาก',
     'ทำเล็บเจลใส สวยวิ้งมากค่ะ','ประทับใจบริการมากค่ะ จะกลับมาอีก','ฝีมือระดับมืออาชีพเลยค่ะ สุดปัง'
   ];
-  const services = ['ทำเจลสี','เพ้นท์ลาย','ต่อเล็บเจล','ทำเจลใส','ถอดเล็บ+ทำใหม่','เจล+เพชร','อะคริลิค'];
   
   for (let i = 0; i < 30; i++) {
     const daysAgo = Math.floor(Math.random() * 60);
@@ -915,7 +964,8 @@ function seedReviews() {
       rating,
       reviews[i],
       date,
-      'approved'
+      'approved',
+      ''
     ]);
   }
   
@@ -925,7 +975,7 @@ function seedReviews() {
 
 function getReviews(data) {
   const { status = 'approved', limit = 10 } = data;
-  const sheet = getSheet('Reviews');
+  const sheet = getSheet(CONFIG.SHEETS.REVIEWS || 'Reviews');
   const rows = sheet.getDataRange().getValues();
   const reviews = [];
   
@@ -937,7 +987,8 @@ function getReviews(data) {
         rating: rows[i][2],
         review: rows[i][3],
         date: rows[i][4],
-        status: rows[i][5]
+        status: rows[i][5],
+        imageUrl: rows[i][6] || ''
       });
     }
   }
@@ -1097,7 +1148,8 @@ function setupSheetHeaders(sheet, sheetName) {
     [CONFIG.SHEETS.CUSTOMERS]: ['CustomerID', 'Phone', 'Name', 'LineUserID', 'Birthday', 'HairType', 'HairCondition', 'Allergies', 'Preferences', 'History', 'TotalVisits', 'TotalSpent', 'LastVisit', 'Notes', 'CreatedAt', 'UpdatedAt'],
     [CONFIG.SHEETS.SERVICE_RECORDS]: ['RecordID', 'OrderID', 'Date', 'StaffID', 'CustomerID', 'ServicesDone', 'ProductsUsed', 'BeforePhotoURL', 'AfterPhotoURL', 'CustomerFeedback', 'StaffNotes', 'NextAppointment'],
     [CONFIG.SHEETS.SETTINGS]: ['Key', 'Value'],
-    [CONFIG.SHEETS.REVIEWS]: ['OrderID', 'CustomerName', 'Rating', 'Review', 'Date', 'Status']
+    [CONFIG.SHEETS.REVIEWS]: ['OrderID', 'CustomerName', 'Rating', 'Review', 'Date', 'Status', 'ImageURL'],
+    [CONFIG.SHEETS.PORTFOLIO]: ['FileID', 'Caption', 'Category', 'URL', 'Thumb', 'Date']
   };
   
   const header = headers[sheetName];

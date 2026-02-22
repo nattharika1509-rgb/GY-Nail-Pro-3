@@ -308,13 +308,45 @@ function submitBooking(data) {
   
   const orderId = 'GY-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMddHHmmss');
   
+  // --- CRM INTEGRATION: Auto Update/Create Customer ---
+  let customerId = '-';
+  try {
+    const cleanPhone = String(data.phone).replace(/-/g, '');
+    const customerSheet = getSheet(CONFIG.SHEETS.CUSTOMERS);
+    const customers = customerSheet.getDataRange().getValues();
+    let foundIdx = -1;
+    
+    for (let i = 1; i < customers.length; i++) {
+      if (String(customers[i][1]).replace(/-/g, '') === cleanPhone) {
+        foundIdx = i + 1;
+        customerId = customers[i][0];
+        break;
+      }
+    }
+    
+    if (foundIdx > 0) {
+      const currentVisits = parseInt(customers[foundIdx-1][10]) || 0;
+      customerSheet.getRange(foundIdx, 11).setValue(currentVisits + 1);
+      customerSheet.getRange(foundIdx, 14).setValue(new Date());
+      customerSheet.getRange(foundIdx, 16).setValue(new Date());
+    } else {
+      customerId = 'C-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMddHHmm');
+      customerSheet.appendRow([
+        customerId, data.phone, data.name, '-', '-', '-', '-', '-', '-', '-', 1, 0, new Date(), '-', new Date(), new Date()
+      ]);
+    }
+  } catch (crmError) {
+    console.error('CRM Error:', crmError);
+  }
+  // ----------------------------------------------------
+
   sheet.appendRow([
     orderId, data.date, data.time, data.staffId || '-',
     data.name, data.phone, data.service, data.service,
     data.design || '-', data.extension || '-', 60,
     data.details || '-', data.locationType || 'ทำที่ร้าน',
     data.address || '-', data.price || '0',
-    CONFIG.STATUS.PENDING_PAYMENT, '', new Date(), '', '', '', ''
+    CONFIG.STATUS.PENDING_PAYMENT, '', new Date(), customerId, '', '', ''
   ]);
   
   return { status: 'success', orderId: orderId };
@@ -535,14 +567,21 @@ function getBookingsByDate(data) {
     const status = rows[i][15];
     
     if (rowDate === date && status !== CONFIG.STATUS.CANCELLED) {
+      let timeVal = rows[i][2];
+      // Check if Date object
+      if (timeVal instanceof Date) {
+        timeVal = Utilities.formatDate(timeVal, Session.getScriptTimeZone(), 'HH:mm');
+      } else {
+        timeVal = String(timeVal || '').trim();
+      }
       bookings.push({
-        orderId: rows[i][0], time: rows[i][2], service: rows[i][7],
+        orderId: rows[i][0], time: timeVal, service: rows[i][7],
         customerName: rows[i][4], status: status
       });
     }
   }
   
-  bookings.sort((a, b) => a.time.localeCompare(b.time));
+  bookings.sort((a, b) => String(a.time).localeCompare(String(b.time)));
   return { status: 'success', data: bookings };
 }
 
@@ -614,8 +653,7 @@ function getRevenueReport(data) {
 }
 
 function getDashboardStats(data) {
-  const now = new Date();
-  const today = formatDateISO(now);
+  const today = formatDateISO(new Date());
   const monthStart = today.substring(0, 7) + '-01';
   
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
@@ -623,102 +661,19 @@ function getDashboardStats(data) {
   
   let todayRevenue = 0, todayCount = 0;
   let monthRevenue = 0, monthCount = 0;
-  let totalRevenue = 0;
   let pendingCount = 0;
   
-  // 7 Days Chart Data
-  const last7Days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    last7Days.push({
-      date: formatDateISO(d),
-      label: d.toLocaleDateString('th-TH', { weekday: 'short' }),
-      revenue: 0,
-      count: 0
-    });
-  }
-  
-  // Stats by Staff & Service
-  const byStaff = {};
-  const byService = {};
-  
-  // Get active staffs from Staffs sheet
-  const staffSheet = getSheet(CONFIG.SHEETS.STAFFS);
-  const staffRows = staffSheet.getDataRange().getValues();
-  for (let i = 1; i < staffRows.length; i++) {
-    // Column 6 is active status
-    if (staffRows[i][6] !== false && staffRows[i][6] !== 'FALSE') {
-      const staffName = staffRows[i][1];
-      byStaff[staffName] = { count: 0, revenue: 0 };
-    }
-  }
-
   for (let i = 1; i < rows.length; i++) {
-    const rowDate = formatDateISO(rows[i][1]);
+    const date = formatDateISO(rows[i][1]);
     const status = rows[i][15];
     const price = parseFloat(rows[i][14]) || 0;
-    const staffName = rows[i][3];
-    const serviceName = rows[i][7];
     
-    // Revenue logic: Only Completed, Confirmed, or In Service
-    const isRevenueStatus = [
-      CONFIG.STATUS.CONFIRMED, 
-      CONFIG.STATUS.COMPLETED, 
-      CONFIG.STATUS.IN_SERVICE
-    ].includes(status);
-    
-    if (isRevenueStatus) {
-      totalRevenue += price;
-      if (rowDate === today) { todayRevenue += price; todayCount++; }
-      if (rowDate >= monthStart && rowDate <= today) { monthRevenue += price; monthCount++; }
-      
-      // 7 Days Chart
-      const dayData = last7Days.find(d => d.date === rowDate);
-      if (dayData) { dayData.revenue += price; dayData.count++; }
-      
-      // By Staff (Barber)
-      if (staffName && staffName !== '-') {
-        if (!byStaff[staffName]) byStaff[staffName] = { count: 0, revenue: 0 };
-        byStaff[staffName].count++;
-        byStaff[staffName].revenue += price;
-      }
-      
-      // By Service
-      if (serviceName && serviceName !== '-') {
-        if (!byService[serviceName]) byService[serviceName] = { count: 0, revenue: 0 };
-        byService[serviceName].count++;
-        byService[serviceName].revenue += price;
-      }
-    }
-    
-    // Count Pending (Payment Uploaded)
+    if (date === today && status === CONFIG.STATUS.COMPLETED) { todayRevenue += price; todayCount++; }
+    if (date >= monthStart && date <= today && status === CONFIG.STATUS.COMPLETED) { monthRevenue += price; monthCount++; }
     if (status === CONFIG.STATUS.PAYMENT_UPLOADED) pendingCount++;
   }
   
-  // Sort and Slice Top 5 Services
-  const topServices = Object.keys(byService)
-    .map(name => ({ name, ...byService[name] }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
-
-  // Staff stats
-  const staffStats = Object.keys(byStaff)
-    .map(name => ({ name, ...byStaff[name] }))
-    .sort((a, b) => b.revenue - a.revenue);
-
-  return { 
-    status: 'success', 
-    data: { 
-      today: { revenue: todayRevenue, count: todayCount }, 
-      month: { revenue: monthRevenue, count: monthCount },
-      total: { revenue: totalRevenue },
-      pending: pendingCount,
-      chart7Days: last7Days,
-      byStaff: staffStats,
-      topServices: topServices
-    } 
-  };
+  return { status: 'success', data: { today: { revenue: todayRevenue, count: todayCount }, month: { revenue: monthRevenue, count: monthCount }, pending: pendingCount } };
 }
 
 // ============================================

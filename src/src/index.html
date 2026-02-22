@@ -279,60 +279,18 @@
             </div>
 
             <div id="admin-dash" class="hidden">
-                <!-- Error Message Container -->
-                <div id="admin-dash-error" class="hidden mb-4 p-3 bg-red-100 border border-red-200 text-red-600 rounded-xl text-sm flex items-center justify-center">
-                </div>
-
-                <!-- Revenue Overview -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="grid grid-cols-3 gap-3 mb-4">
                     <div class="glass-panel rounded-xl p-4 text-center">
-                        <p class="text-xs text-gray-500 mb-1">วันนี้</p>
-                        <p class="text-lg font-bold text-rose-500" id="today-revenue">฿0</p>
+                        <p class="text-xs text-gray-500 mb-1">รายได้วันนี้</p>
+                        <p class="text-xl font-bold text-rose-500" id="today-revenue">฿0</p>
                     </div>
                     <div class="glass-panel rounded-xl p-4 text-center">
-                        <p class="text-xs text-gray-500 mb-1">เดือนนี้</p>
-                        <p class="text-lg font-bold text-green-500" id="month-revenue">฿0</p>
+                        <p class="text-xs text-gray-500 mb-1">รายได้เดือนนี้</p>
+                        <p class="text-xl font-bold text-green-500" id="month-revenue">฿0</p>
                     </div>
                     <div class="glass-panel rounded-xl p-4 text-center">
-                        <p class="text-xs text-gray-500 mb-1">ทั้งหมด</p>
-                        <p class="text-lg font-bold text-blue-500" id="total-revenue">฿0</p>
-                    </div>
-                    <div class="glass-panel rounded-xl p-4 text-center">
-                        <p class="text-xs text-gray-500 mb-1">รออนุมัติ</p>
-                        <p class="text-lg font-bold text-orange-500" id="pending-count">0</p>
-                    </div>
-                </div>
-
-                <!-- New Analytics Section -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <!-- 7-Day Chart -->
-                    <div class="glass-panel rounded-xl p-4">
-                        <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-2">
-                            <i class="fas fa-chart-line text-rose-500"></i> สถิติ 7 วันย้อนหลัง
-                        </h3>
-                        <div id="admin-revenue-chart" class="h-32 flex items-end justify-between px-2 gap-1 border-b border-gray-100 pb-2">
-                            <!-- Chart Bars will be injected here -->
-                        </div>
-                    </div>
-
-                    <!-- Top Services -->
-                    <div class="glass-panel rounded-xl p-4">
-                        <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-2">
-                            <i class="fas fa-fire text-orange-500"></i> 5 อันดับบริการยอดนิยม
-                        </h3>
-                        <div id="top-services-list" class="space-y-2 text-sm">
-                            <!-- Services will be injected here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Staff Statistics -->
-                <div class="glass-panel rounded-xl p-4 mb-4">
-                    <h3 class="font-bold text-gray-700 mb-3 flex items-center gap-2">
-                        <i class="fas fa-user-tie text-blue-500"></i> สถิติช่าง (Staff Stats)
-                    </h3>
-                    <div id="staff-stats-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <!-- Staff cards will be injected here -->
+                        <p class="text-xs text-gray-500 mb-1">คิวรออนุมัติ</p>
+                        <p class="text-xl font-bold text-orange-500" id="pending-count">0</p>
                     </div>
                 </div>
 
@@ -753,7 +711,7 @@
 // ============================================
 
 // ⚠️ เปลี่ยน URL นี้เป็น Web App URL ที่ได้จากการ Deploy Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbwf-PDjgQddVafaUOIqpRnziptBAKu0JU_b-czH9Qr3fCqgx-FxRHQt7W1DtQW0W5Zxzw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyg5tianwr8gWidAx8x2ZrSO-yfSqjOWEEDIcKruyQx4uliCVGlp-8St4fJiDviQhg7Iw/exec";
 
 let settings = {}; 
 let bookings = [];
@@ -1272,55 +1230,78 @@ function loadAdminData() {
             try { menuData = JSON.parse(settings.menu_config); } catch(e){} 
         }
         list.innerHTML = '';
-        if(bookings.length === 0) { list.innerHTML = '<div class="text-center mt-10 text-gray-400">ไม่มีรายการจอง</div>'; return; }
-        bookings.forEach(b => {
+        
+        // กรองเฉพาะรายการที่ยังไม่ได้จัดการ
+        const pendingBookings = bookings.filter(b => 
+            b.status !== 'ยืนยันแล้ว' && 
+            b.status !== 'ยกเลิก' && 
+            b.status !== 'เสร็จสิ้น'
+        );
+
+        if(pendingBookings.length === 0) { 
+            list.innerHTML = '<div class="text-center mt-10 text-gray-400">ไม่มีรายการจองที่ต้องจัดการ</div>'; 
+            return; 
+        }
+
+        pendingBookings.forEach(b => {
             let stColor = 'text-yellow-500';
             if(b.status === 'ยืนยันแล้ว') stColor = 'text-green-500';
             if(b.status === 'ยกเลิก') stColor = 'text-red-500';
-            let dateDisplay = b.date;
-            try { dateDisplay = new Date(b.date).toLocaleDateString('th-TH'); } catch(e){}
-            const item = document.createElement('div');
-            item.className = 'bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative';
+            
             let formattedDate = b.date;
             let formattedTime = b.time;
+            
             try {
                 const d = new Date(b.date);
                 if (!isNaN(d)) {
-                    formattedDate = d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+                    formattedDate = d.toLocaleDateString('th-TH', { 
+                        day: 'numeric', 
+                        month: 'short', 
+                        year: 'numeric' 
+                    });
                 }
+                
                 if (b.time && b.time.includes('T')) {
                     const t = new Date(b.time);
                     if (!isNaN(t)) {
-                        formattedTime = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                        formattedTime = t.toLocaleTimeString('th-TH', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: false 
+                        });
                     }
                 }
             } catch(e) {}
+
+            const item = document.createElement('div');
+            item.className = 'bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative mb-3 hover:border-rose-200 transition';
             item.innerHTML = `
                 <div class="flex justify-between items-start mb-2">
-                    <div><span class="text-xs text-gray-400">#${b.orderId}</span><div class="font-bold text-gray-800">${b.name} <span class="text-xs font-normal text-gray-500">(${b.phone})</span></div></div>
+                    <div>
+                        <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">#${b.orderId}</span>
+                        <div class="font-bold text-gray-800 mt-1">${b.name} <span class="text-xs font-normal text-gray-500">(${b.phone})</span></div>
+                    </div>
                     <span class="text-xs font-bold ${stColor}">${b.status}</span>
                 </div>
-                <div class="bg-rose-50 rounded-lg p-2 mb-3 border border-rose-100">
-                    <div class="flex items-center justify-center gap-3">
-                        <div class="text-center">
-                            <div class="text-xs text-rose-400">วันที่</div>
-                            <div class="font-bold text-rose-600 text-sm">${formattedDate}</div>
-                        </div>
-                        <div class="w-px h-8 bg-rose-200"></div>
-                        <div class="text-center">
-                            <div class="text-xs text-rose-400">เวลา</div>
-                            <div class="font-bold text-rose-600 text-sm">${formattedTime}</div>
-                        </div>
+                <div class="bg-rose-50 rounded-lg p-2 mb-3 border border-rose-100 flex items-center justify-around">
+                    <div class="text-center">
+                        <div class="text-[10px] text-rose-400 uppercase font-bold">วันที่นัด</div>
+                        <div class="font-bold text-rose-600 text-sm">${formattedDate}</div>
+                    </div>
+                    <div class="w-px h-8 bg-rose-200"></div>
+                    <div class="text-center">
+                        <div class="text-[10px] text-rose-400 uppercase font-bold">เวลา</div>
+                        <div class="font-bold text-rose-600 text-sm">${formattedTime} น.</div>
                     </div>
                 </div>
-                <div class="text-sm text-gray-600 mb-3">
-                    <div class="flex items-center gap-2"><i class="fas fa-spa text-rose-300"></i> ${b.service}</div>
-                    ${b.price ? `<div class="flex items-center gap-2"><i class="fas fa-tag text-rose-300"></i> ${b.price} บาท</div>` : ''}
+                <div class="text-sm text-gray-600 mb-3 space-y-1">
+                    <div class="flex items-center gap-2"><i class="fas fa-spa text-rose-300 w-4"></i> ${b.service}</div>
+                    ${b.price ? `<div class="flex items-center gap-2"><i class="fas fa-tag text-rose-300 w-4"></i> ${b.price} บาท</div>` : ''}
                 </div>
                 <div class="flex gap-2 border-t pt-2 mt-2">
-                    <button onclick="updateStatus(${b.row}, 'ยืนยันแล้ว')" class="flex-1 py-1.5 text-xs bg-green-50 text-green-600 rounded hover:bg-green-100">ยืนยัน</button>
-                    <button onclick="updateStatus(${b.row}, 'ยกเลิก')" class="flex-1 py-1.5 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100">ยกเลิก</button>
-                    <button onclick="deleteBooking(${b.row})" class="px-3 py-1.5 text-xs bg-gray-100 text-gray-400 rounded hover:bg-gray-200"><i class="fas fa-trash"></i></button>
+                    <button onclick="updateStatus(${b.row}, 'ยืนยันแล้ว')" class="flex-1 py-1.5 text-xs bg-green-50 text-green-600 rounded-lg font-bold hover:bg-green-100">ยืนยัน</button>
+                    <button onclick="updateStatus(${b.row}, 'ยกเลิก')" class="flex-1 py-1.5 text-xs bg-red-50 text-red-600 rounded-lg font-bold hover:bg-red-100">ยกเลิก</button>
+                    <button onclick="deleteBooking(${b.row})" class="px-3 py-1.5 text-xs bg-gray-100 text-gray-400 rounded-lg hover:bg-gray-200"><i class="fas fa-trash"></i></button>
                 </div>`;
             list.appendChild(item);
         });
@@ -1685,89 +1666,15 @@ function removeSpecialDate(index) {
 
 // Dashboard Stats
 function loadDashboardStats() {
-    const errorDiv = document.getElementById('admin-dash-error');
-    if (errorDiv) errorDiv.classList.add('hidden');
-
     apiCall('getDashboardStats', {}, (res) => {
         if (res.status === 'success') {
-            const d = res.data;
-            document.getElementById('today-revenue').textContent = '฿' + d.today.revenue.toLocaleString();
-            document.getElementById('month-revenue').textContent = '฿' + d.month.revenue.toLocaleString();
-            const totalRevEl = document.getElementById('total-revenue');
-            if (totalRevEl) totalRevEl.textContent = '฿' + (d.total ? d.total.revenue : 0).toLocaleString();
-            document.getElementById('pending-count').textContent = d.pending;
+            document.getElementById('today-revenue').textContent = '฿' + res.data.today.revenue.toLocaleString();
+            document.getElementById('month-revenue').textContent = '฿' + res.data.month.revenue.toLocaleString();
+            document.getElementById('pending-count').textContent = res.data.pending;
             
             const badge = document.getElementById('pending-badge');
-            if (d.pending > 0) { badge.textContent = d.pending; badge.classList.remove('hidden'); }
+            if (res.data.pending > 0) { badge.textContent = res.data.pending; badge.classList.remove('hidden'); }
             else badge.classList.add('hidden');
-
-            // Render 7-Day Chart
-            const chartDiv = document.getElementById('admin-revenue-chart');
-            if (chartDiv && d.chart7Days) {
-                let maxRev = Math.max(...d.chart7Days.map(item => item.revenue), 100);
-                chartDiv.innerHTML = d.chart7Days.map(item => {
-                    const height = (item.revenue / maxRev) * 100;
-                    return `<div class="flex-1 flex flex-col items-center group relative h-full justify-end">
-                        <div class="w-full bg-rose-400 rounded-t-sm transition-all hover:bg-rose-500" style="height: ${Math.max(5, height)}%">
-                            <div class="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">฿${item.revenue.toLocaleString()}</div>
-                        </div>
-                        <div class="text-[9px] text-gray-400 mt-1 font-medium">${item.label}</div>
-                    </div>`;
-                }).join('');
-            }
-
-            // Render Top Services
-            const serviceDiv = document.getElementById('top-services-list');
-            if (serviceDiv && d.topServices) {
-                serviceDiv.innerHTML = d.topServices.length ? d.topServices.map((s, idx) => `
-                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-100">
-                        <div class="flex items-center gap-2">
-                            <span class="w-5 h-5 flex items-center justify-center bg-rose-500 text-white text-[10px] rounded-full font-bold">${idx+1}</span>
-                            <span class="text-gray-700 truncate w-24 sm:w-auto font-medium">${s.name}</span>
-                        </div>
-                        <div class="text-right">
-                            <div class="font-bold text-gray-800">${s.count} คิว</div>
-                            <div class="text-[10px] text-gray-400">฿${s.revenue.toLocaleString()}</div>
-                        </div>
-                    </div>
-                `).join('') : '<p class="text-center text-gray-400 py-4">ยังไม่มีข้อมูลบริการ</p>';
-            }
-
-            // Render Staff Stats
-            const staffDiv = document.getElementById('staff-stats-list');
-            if (staffDiv && d.byStaff) {
-                staffDiv.innerHTML = d.byStaff.length ? d.byStaff.map(s => `
-                    <div class="bg-white border border-gray-100 p-3 rounded-xl shadow-sm hover:shadow-md transition">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm shadow-inner">${s.name[0]}</div>
-                            <div>
-                                <div class="font-bold text-gray-800 text-sm">${s.name}</div>
-                                <div class="text-[10px] text-gray-400">สรุปงานสะสม</div>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-center">
-                            <div class="bg-blue-50/50 p-2 rounded-lg">
-                                <div class="text-[10px] text-gray-400">งานสำเร็จ</div>
-                                <div class="font-bold text-blue-600">${s.count} คิว</div>
-                            </div>
-                            <div class="bg-green-50/50 p-2 rounded-lg">
-                                <div class="text-[10px] text-gray-400">รายได้รวม</div>
-                                <div class="font-bold text-green-600">฿${s.revenue.toLocaleString()}</div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('') : '<p class="text-center text-gray-400 py-4 col-span-full">ยังไม่มีข้อมูลช่าง</p>';
-            }
-        } else {
-            if (errorDiv) {
-                errorDiv.classList.remove('hidden');
-                errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> ไม่สามารถดึงข้อมูลได้: ${res.message || 'Unknown error'}`;
-            }
-        }
-    }, (err) => {
-        if (errorDiv) {
-            errorDiv.classList.remove('hidden');
-            errorDiv.innerHTML = `<i class="fas fa-wifi-slash mr-2"></i> การดึงข้อมูลล้มเหลว ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต`;
         }
     });
 }
@@ -1934,27 +1841,31 @@ function loadRevenueReport(period) {
     else if (period === 'week') { startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; endDate = today; }
     else { startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; endDate = today; }
     
-    apiCall('getRevenueReport', { startDate, endDate, groupBy: 'day' }, (res) => {
-        const chartDiv = document.getElementById('revenue-chart');
-        const summaryDiv = document.getElementById('revenue-summary');
-        
-        if (res.data.length === 0) { chartDiv.innerHTML = '<p class="text-gray-400 text-sm">ไม่มีข้อมูล</p>'; summaryDiv.innerHTML = ''; return; }
-        
-        let maxRevenue = Math.max(...res.data.map(d => d.revenue));
-        let chartHtml = '<div class="flex items-end justify-between h-full px-2 gap-1">';
-        res.data.forEach(d => {
-            const height = maxRevenue > 0 ? (d.revenue / maxRevenue * 100) : 0;
-            chartHtml += `<div class="flex-1 flex flex-col items-center"><div class="w-full bg-rose-400 rounded-t" style="height: ${height}%"></div><div class="text-[10px] text-gray-500 mt-1">${d.date.substring(5)}</div></div>`;
-        });
-        chartHtml += '</div>';
-        chartDiv.innerHTML = chartHtml;
-        
-        const totalRevenue = res.data.reduce((sum, d) => sum + d.revenue, 0);
-        const totalCount = res.data.reduce((sum, d) => sum + d.count, 0);
-        summaryDiv.innerHTML = `
-            <div class="bg-gray-50 p-3 rounded-lg"><div class="flex justify-between items-center"><span class="text-sm text-gray-600">รายได้รวม</span><span class="text-lg font-bold text-rose-500">฿${totalRevenue.toLocaleString()}</span></div></div>
-            <div class="bg-gray-50 p-3 rounded-lg"><div class="flex justify-between items-center"><span class="text-sm text-gray-600">จำนวนรายการ</span><span class="text-lg font-bold text-blue-500">${totalCount} รายการ</span></div></div>
-        `;
+    const summaryDiv = document.getElementById('revenue-summary');
+    summaryDiv.innerHTML = '<p class="text-gray-400 text-sm animate-pulse">กำลังคำนวณยอด...</p>';
+
+    apiCall('getRevenueReport', { startDate, endDate }, (res) => {
+        if (res.status === 'success' && Array.isArray(res.data)) {
+            const total = res.data.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+            const count = res.data.length;
+            
+            summaryDiv.innerHTML = `
+                <div class="bg-gray-50 p-3 rounded-lg mb-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">รายได้รวม</span>
+                        <span class="text-lg font-bold text-rose-500">฿${total.toLocaleString()}</span>
+                    </div>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">จำนวนรายการ</span>
+                        <span class="text-lg font-bold text-blue-500">${count} รายการ</span>
+                    </div>
+                </div>
+            `;
+        } else {
+            summaryDiv.innerHTML = '<p class="text-gray-400 text-sm">ไม่พบข้อมูลในช่วงเวลานี้</p>';
+        }
     });
 }
 

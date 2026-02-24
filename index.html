@@ -1378,7 +1378,7 @@ function saveSettings() {
     
     newSet.contactChannels = JSON.stringify(contactChannels);
     
-    googleScriptRun.saveSettings({ settings: newSet }, () => {
+    apiCall('saveSettings', { settings: newSet }, () => {
         closeModal('settings-modal');
         Swal.fire('Saved', 'บันทึกเรียบร้อย', 'success');
         loadAdminData();

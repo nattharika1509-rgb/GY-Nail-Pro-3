@@ -447,20 +447,26 @@ function deleteBooking(data) {
 
 function saveSettings(data) {
   const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
+  // ปรับการดึงข้อมูลเพื่อให้รองรับโครงสร้างข้อมูลที่อาจซ้อนกันมาจากการส่งแบบ POST
+  const settingsToSave = data.settings?.settings || data.settings || data;
   
-  for (const key in data.settings) {
+  console.log('[saveSettings] Data to save keys:', Object.keys(settingsToSave).join(','));
+  
+  for (const key in settingsToSave) {
+    if (key === 'action') continue;
+    
     const rows = sheet.getDataRange().getValues();
     let found = false;
     
     for (let i = 1; i < rows.length; i++) {
       if (rows[i][0] === key) {
-        sheet.getRange(i + 1, 2).setValue(data.settings[key]);
+        sheet.getRange(i + 1, 2).setValue(settingsToSave[key]);
         found = true;
         break;
       }
     }
     
-    if (!found) sheet.appendRow([key, data.settings[key]]);
+    if (!found) sheet.appendRow([key, settingsToSave[key]]);
   }
   
   return { status: 'success' };

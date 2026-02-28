@@ -585,14 +585,52 @@
                     </div>
                 </div>
 
-                <!-- ===== รายการจองล่าสุด (ขึ้นมาอยู่ตรงนี้เลย เห็นทันที!) ===== -->
-                <div class="flex justify-between items-center mb-4 px-1">
-                    <h3 class="font-bold text-gray-700"><i class="fas fa-bell text-rose-500 mr-2"></i>รายการจองล่าสุด
-                    </h3>
+                <!-- ===== รายการจอง แยกหมวดหมู่ ===== -->
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <h3 class="font-bold text-gray-700"><i class="fas fa-bell text-rose-500 mr-2"></i>รายการจอง</h3>
                     <button onclick="loadAdminData()" class="text-rose-500 text-sm hover:underline"><i
                             class="fas fa-sync-alt"></i> รีเฟรช</button>
                 </div>
-                <div id="booking-list" class="space-y-3 mb-6"></div>
+
+                <!-- หมวด 1: คิวใหม่ -->
+                <div class="mb-4">
+                    <div class="flex items-center gap-2 mb-2 px-1">
+                        <span class="w-2.5 h-2.5 bg-orange-400 rounded-full animate-pulse"></span>
+                        <span class="text-sm font-bold text-orange-600" id="new-booking-count">คิวใหม่ (0)</span>
+                    </div>
+                    <div id="booking-list-new" class="space-y-3"></div>
+                </div>
+
+                <!-- หมวด 2: ยืนยันแล้ว (พับได้) -->
+                <div class="mb-4">
+                    <button onclick="toggleSection('booking-list-confirmed')"
+                        class="w-full flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 mb-2 hover:bg-green-100 transition">
+                        <span class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                            <span class="text-sm font-bold text-green-700" id="confirmed-booking-count">ยืนยันแล้ว
+                                (0)</span>
+                        </span>
+                        <i class="fas fa-chevron-down text-green-400 text-xs transition"
+                            id="icon-booking-list-confirmed"></i>
+                    </button>
+                    <div id="booking-list-confirmed" class="space-y-3 hidden"></div>
+                </div>
+
+                <!-- หมวด 3: เสร็จสิ้น/ยกเลิก (พับได้) -->
+                <div class="mb-6">
+                    <button onclick="toggleSection('booking-list-done')"
+                        class="w-full flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 mb-2 hover:bg-gray-100 transition">
+                        <span class="flex items-center gap-2">
+                            <i class="fas fa-archive text-gray-400"></i>
+                            <span class="text-sm font-bold text-gray-500" id="done-booking-count">เสร็จสิ้น/ยกเลิก
+                                (0)</span>
+                        </span>
+                        <i class="fas fa-chevron-down text-gray-400 text-xs transition" id="icon-booking-list-done"></i>
+                    </button>
+                    <div id="booking-list-done" class="space-y-3 hidden"></div>
+                </div>
+                <!-- compat: keep old id for any reference -->
+                <div id="booking-list" class="hidden"></div>
 
                 <!-- ===== สถิติ & กราฟ (เลื่อนมาดูทีหลังได้) ===== -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1622,71 +1660,140 @@
             document.getElementById('admin-pass').value = '';
         }
 
+        function toggleSection(id) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            el.classList.toggle('hidden');
+            if (icon) icon.style.transform = el.classList.contains('hidden') ? '' : 'rotate(180deg)';
+        }
+
+        function createBookingCard(b) {
+            let stColor = 'text-yellow-500';
+            if (b.status === 'ยืนยันแล้ว' || b.status === 'กำลังให้บริการ') stColor = 'text-green-500';
+            if (b.status === 'เสร็จสิ้น') stColor = 'text-blue-500';
+            if (b.status === 'ยกเลิก') stColor = 'text-red-500';
+            if (b.status === 'แจ้งชำระแล้ว') stColor = 'text-orange-500';
+
+            let formattedDate = b.date;
+            let formattedTime = b.time;
+            try {
+                const d = new Date(b.date);
+                if (!isNaN(d)) formattedDate = d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+                if (b.time && b.time.includes('T')) {
+                    const t = new Date(b.time);
+                    if (!isNaN(t)) formattedTime = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                }
+            } catch (e) { }
+
+            let phoneDisplay = String(b.phone || '');
+            if (phoneDisplay.length === 9 && !phoneDisplay.startsWith('0')) phoneDisplay = '0' + phoneDisplay;
+
+            // ปุ่มตามสถานะ
+            let actionBtns = '';
+            if (b.status === 'รอชำระเงิน' || b.status === 'แจ้งชำระแล้ว') {
+                actionBtns = `
+            <button onclick="updateStatus(${b.row}, 'ยืนยันแล้ว')" class="flex-1 py-1.5 text-xs bg-green-50 text-green-600 rounded hover:bg-green-100">ยืนยัน</button>
+            <button onclick="updateStatus(${b.row}, 'ยกเลิก')" class="flex-1 py-1.5 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100">ยกเลิก</button>
+            <button onclick="deleteBooking(${b.row})" class="px-3 py-1.5 text-xs bg-gray-100 text-gray-400 rounded hover:bg-gray-200"><i class="fas fa-trash"></i></button>`;
+            } else if (b.status === 'ยืนยันแล้ว') {
+                actionBtns = `
+            <button onclick="updateStatus(${b.row}, 'กำลังให้บริการ')" class="flex-1 py-1.5 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100"><i class="fas fa-play mr-1"></i>เริ่มบริการ</button>
+            <button onclick="updateStatus(${b.row}, 'ยกเลิก')" class="flex-1 py-1.5 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100">ยกเลิก</button>`;
+            } else if (b.status === 'กำลังให้บริการ') {
+                actionBtns = `
+            <button onclick="updateStatus(${b.row}, 'เสร็จสิ้น')" class="flex-1 py-1.5 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100"><i class="fas fa-check mr-1"></i>เสร็จสิ้น</button>`;
+            } else {
+                actionBtns = `
+            <button onclick="deleteBooking(${b.row})" class="flex-1 py-1.5 text-xs bg-gray-100 text-gray-400 rounded hover:bg-gray-200"><i class="fas fa-trash mr-1"></i>ลบ</button>`;
+            }
+
+            const item = document.createElement('div');
+            item.className = 'bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative';
+            item.innerHTML = `
+        <div class="flex justify-between items-start mb-2">
+            <div><span class="text-xs text-gray-400">#${b.orderId}</span><div class="font-bold text-gray-800">${b.name} <span class="text-xs font-normal text-gray-500">(${phoneDisplay})</span></div></div>
+            <span class="text-xs font-bold ${stColor}">${b.status}</span>
+        </div>
+        <div class="bg-rose-50 rounded-lg p-2 mb-3 border border-rose-100">
+            <div class="flex items-center justify-center gap-3">
+                <div class="text-center">
+                    <div class="text-xs text-rose-400">วันที่</div>
+                    <div class="font-bold text-rose-600 text-sm">${formattedDate}</div>
+                </div>
+                <div class="w-px h-8 bg-rose-200"></div>
+                <div class="text-center">
+                    <div class="text-xs text-rose-400">เวลา</div>
+                    <div class="font-bold text-rose-600 text-sm">${formattedTime}</div>
+                </div>
+            </div>
+        </div>
+        <div class="text-sm text-gray-600 mb-3">
+            <div class="flex items-center gap-2"><i class="fas fa-spa text-rose-300"></i> ${b.service}</div>
+            ${b.price ? `<div class="flex items-center gap-2"><i class="fas fa-tag text-rose-300"></i> ${b.price} บาท</div>` : ''}
+        </div>
+        <div class="flex gap-2 border-t pt-2 mt-2">${actionBtns}</div>`;
+            return item;
+        }
+
         function loadAdminData() {
-            const list = document.getElementById('booking-list');
-            list.innerHTML = '<div class="text-center mt-10 text-gray-400"><i class="fas fa-circle-notch fa-spin"></i> โหลดข้อมูล...</div>';
+            // แสดง loading ในทุกหมวด
+            const listNew = document.getElementById('booking-list-new');
+            const listConfirmed = document.getElementById('booking-list-confirmed');
+            const listDone = document.getElementById('booking-list-done');
+            listNew.innerHTML = '<div class="text-center py-4 text-gray-400"><i class="fas fa-circle-notch fa-spin"></i> โหลดข้อมูล...</div>';
+
             googleScriptRun.getAdminData(res => {
                 settings = res.settings;
                 bookings = res.bookings;
                 if (settings.menu_config && settings.menu_config !== "") {
                     try { menuData = JSON.parse(settings.menu_config); } catch (e) { }
                 }
-                list.innerHTML = '';
-                if (bookings.length === 0) { list.innerHTML = '<div class="text-center mt-10 text-gray-400">ไม่มีรายการจอง</div>'; return; }
-                bookings.forEach(b => {
-                    let stColor = 'text-yellow-500';
-                    if (b.status === 'ยืนยันแล้ว') stColor = 'text-green-500';
-                    if (b.status === 'ยกเลิก') stColor = 'text-red-500';
-                    let dateDisplay = b.date;
-                    try { dateDisplay = new Date(b.date).toLocaleDateString('th-TH'); } catch (e) { }
-                    const item = document.createElement('div');
-                    item.className = 'bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative';
-                    let formattedDate = b.date;
-                    let formattedTime = b.time;
-                    try {
-                        const d = new Date(b.date);
-                        if (!isNaN(d)) {
-                            formattedDate = d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-                        }
-                        if (b.time && b.time.includes('T')) {
-                            const t = new Date(b.time);
-                            if (!isNaN(t)) {
-                                formattedTime = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                            }
-                        }
-                    } catch (e) { }
-                    let phoneDisplay = String(b.phone || '');
-                    if (phoneDisplay.length === 9 && !phoneDisplay.startsWith('0')) phoneDisplay = '0' + phoneDisplay;
 
-                    item.innerHTML = `
-                <div class="flex justify-between items-start mb-2">
-                    <div><span class="text-xs text-gray-400">#${b.orderId}</span><div class="font-bold text-gray-800">${b.name} <span class="text-xs font-normal text-gray-500">(${phoneDisplay})</span></div></div>
-                    <span class="text-xs font-bold ${stColor}">${b.status}</span>
-                </div>
-                <div class="bg-rose-50 rounded-lg p-2 mb-3 border border-rose-100">
-                    <div class="flex items-center justify-center gap-3">
-                        <div class="text-center">
-                            <div class="text-xs text-rose-400">วันที่</div>
-                            <div class="font-bold text-rose-600 text-sm">${formattedDate}</div>
-                        </div>
-                        <div class="w-px h-8 bg-rose-200"></div>
-                        <div class="text-center">
-                            <div class="text-xs text-rose-400">เวลา</div>
-                            <div class="font-bold text-rose-600 text-sm">${formattedTime}</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-sm text-gray-600 mb-3">
-                    <div class="flex items-center gap-2"><i class="fas fa-spa text-rose-300"></i> ${b.service}</div>
-                    ${b.price ? `<div class="flex items-center gap-2"><i class="fas fa-tag text-rose-300"></i> ${b.price} บาท</div>` : ''}
-                </div>
-                <div class="flex gap-2 border-t pt-2 mt-2">
-                    <button onclick="updateStatus(${b.row}, 'ยืนยันแล้ว')" class="flex-1 py-1.5 text-xs bg-green-50 text-green-600 rounded hover:bg-green-100">ยืนยัน</button>
-                    <button onclick="updateStatus(${b.row}, 'ยกเลิก')" class="flex-1 py-1.5 text-xs bg-red-50 text-red-600 rounded hover:bg-red-100">ยกเลิก</button>
-                    <button onclick="deleteBooking(${b.row})" class="px-3 py-1.5 text-xs bg-gray-100 text-gray-400 rounded hover:bg-gray-200"><i class="fas fa-trash"></i></button>
-                </div>`;
-                    list.appendChild(item);
+                // แยกหมวดหมู่ตามสถานะ
+                const newBookings = [];       // รอชำระ + แจ้งชำระแล้ว
+                const confirmedBookings = []; // ยืนยันแล้ว + กำลังให้บริการ
+                const doneBookings = [];      // เสร็จสิ้น + ยกเลิก
+
+                bookings.forEach(b => {
+                    if (b.status === 'รอชำระเงิน' || b.status === 'แจ้งชำระแล้ว') {
+                        newBookings.push(b);
+                    } else if (b.status === 'ยืนยันแล้ว' || b.status === 'กำลังให้บริการ') {
+                        confirmedBookings.push(b);
+                    } else {
+                        doneBookings.push(b);
+                    }
                 });
+
+                // Render คิวใหม่
+                listNew.innerHTML = '';
+                document.getElementById('new-booking-count').textContent = `คิวใหม่ (${newBookings.length})`;
+                if (newBookings.length === 0) {
+                    listNew.innerHTML = '<div class="text-center py-6 text-gray-300 text-sm"><i class="fas fa-inbox text-2xl mb-2 block"></i>ไม่มีคิวใหม่</div>';
+                } else {
+                    newBookings.forEach(b => listNew.appendChild(createBookingCard(b)));
+                }
+
+                // Render ยืนยันแล้ว
+                listConfirmed.innerHTML = '';
+                document.getElementById('confirmed-booking-count').textContent = `ยืนยันแล้ว (${confirmedBookings.length})`;
+                if (confirmedBookings.length === 0) {
+                    listConfirmed.innerHTML = '<div class="text-center py-4 text-gray-300 text-sm">ไม่มีรายการ</div>';
+                } else {
+                    confirmedBookings.forEach(b => listConfirmed.appendChild(createBookingCard(b)));
+                }
+
+                // Render เสร็จสิ้น/ยกเลิก (แสดงแค่ 20 ล่าสุด เพื่อไม่ให้ยาวเกินไป)
+                listDone.innerHTML = '';
+                document.getElementById('done-booking-count').textContent = `เสร็จสิ้น/ยกเลิก (${doneBookings.length})`;
+                const recentDone = doneBookings.slice(0, 20);
+                if (recentDone.length === 0) {
+                    listDone.innerHTML = '<div class="text-center py-4 text-gray-300 text-sm">ไม่มีรายการ</div>';
+                } else {
+                    recentDone.forEach(b => listDone.appendChild(createBookingCard(b)));
+                    if (doneBookings.length > 20) {
+                        listDone.innerHTML += `<div class="text-center text-gray-400 text-xs py-2">แสดง 20 จาก ${doneBookings.length} รายการ — ดูทั้งหมดใน Google Sheets</div>`;
+                    }
+                }
             });
         }
 
@@ -2869,111 +2976,3 @@
             const bubble = document.getElementById('contact-bubble').querySelector('div:first-child');
             const links = menu.querySelectorAll('a');
             contactMenuOpen = !contactMenuOpen;
-
-            if (contactMenuOpen) {
-                menu.classList.remove('hidden');
-                bubble.style.transform = 'rotate(0deg)';
-                links.forEach((link, i) => {
-                    link.style.animation = 'none';
-                    link.offsetHeight;
-                    link.style.animation = `contactPop 0.3s ease forwards ${i * 0.08}s`;
-                });
-            } else {
-                menu.classList.add('hidden');
-                bubble.style.transform = 'rotate(-90deg)';
-            }
-        }
-
-        function loadContactChannels() {
-            // ใช้ settings ที่โหลดมาแล้วแทนการเรียก API ซ้ำ (แก้ BUG-20)
-            if (settings && settings.contactChannels) {
-                let channels = settings.contactChannels;
-                if (typeof channels === 'string') {
-                    try { channels = JSON.parse(channels); } catch (e) { console.error("Error parsing contactChannels", e); return; }
-                }
-                if (channels.facebook) document.getElementById('contact-facebook').href = channels.facebook;
-                if (channels.tiktok) document.getElementById('contact-tiktok').href = channels.tiktok;
-                if (channels.phone) document.getElementById('contact-phone').href = 'tel:' + channels.phone;
-            }
-        }
-
-        // ============================================
-        // SNOWFALL EFFECT
-        // ============================================
-
-        let snowCanvas, snowCtx;
-        let snowflakes = [];
-        let snowAnimationId;
-
-        function initSnowfall() {
-            snowCanvas = document.getElementById('snowCanvas');
-            if (!snowCanvas) return;
-            snowCtx = snowCanvas.getContext('2d');
-            if (!snowCtx) return;
-            resizeSnowCanvas();
-            window.addEventListener('resize', resizeSnowCanvas);
-            createSnowflakes();
-            animateSnow();
-        }
-
-        function resizeSnowCanvas() {
-            if (!snowCanvas) return;
-            snowCanvas.width = window.innerWidth;
-            snowCanvas.height = window.innerHeight;
-        }
-
-        function createSnowflakes() {
-            snowflakes = [];
-            const flakeCount = Math.floor(window.innerWidth / 8);
-            for (let i = 0; i < flakeCount; i++) {
-                snowflakes.push({
-                    x: Math.random() * snowCanvas.width,
-                    y: Math.random() * snowCanvas.height,
-                    r: Math.random() * 3 + 1,
-                    d: Math.random() * flakeCount,
-                    speed: Math.random() * 1 + 0.5
-                });
-            }
-        }
-
-        function animateSnow() {
-            snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
-            snowCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            snowCtx.beginPath();
-
-            for (let i = 0; i < snowflakes.length; i++) {
-                const flake = snowflakes[i];
-                snowCtx.moveTo(flake.x, flake.y);
-                snowCtx.arc(flake.x, flake.y, flake.r, 0, Math.PI * 2, true);
-            }
-            snowCtx.fill();
-            moveSnowflakes();
-            snowAnimationId = requestAnimationFrame(animateSnow);
-        }
-
-        function moveSnowflakes() {
-            for (let i = 0; i < snowflakes.length; i++) {
-                const flake = snowflakes[i];
-                flake.y += flake.speed;
-                flake.x += Math.sin(flake.d) * 0.5;
-
-                if (flake.y > snowCanvas.height) {
-                    flake.y = -10;
-                    flake.x = Math.random() * snowCanvas.width;
-                }
-                if (flake.x > snowCanvas.width) flake.x = 0;
-                if (flake.x < 0) flake.x = snowCanvas.width;
-                flake.d += 0.01;
-            }
-        }
-
-        function stopSnowfall() {
-            if (snowAnimationId) {
-                cancelAnimationFrame(snowAnimationId);
-                snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
-            }
-        }
-    </script>
-</body>
-
-</html>

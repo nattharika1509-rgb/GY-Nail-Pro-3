@@ -1,7 +1,8 @@
 /**
  * ============================================
  * GY-Nail Booking System - Google Apps Script Backend
- * Version: 3.0 (Consolidated & Fixed)
+ * Version: 3.1 (Bug-fixed & Cleaned up)
+ * Last Updated: 2026-02-28
  * ============================================
  * 
  * Setup Instructions:
@@ -25,19 +26,19 @@ const CONFIG = {
   // ⚠️ แก้ไขตรงนี้
   SHEET_ID: '1BJq47HiG2iaBA5HegYKSAMqfSy7fqKeQxe_7ZLQemX0',
   CALENDAR_ID: 'nattharika1509@gmail.com',
-  
+
   // Google Gemini API Key (สำหรับ AI Nail Consultant)
   // สมัครได้ที่: https://makersuite.google.com/app/apikey
   GEMINI_API_KEY: 'AIzaSyBcSWAFdHtcS0y2PFi__zA88MBcW1tiz4I',
-  
+
   // ตั้งค่า Line (optional)
   LINE_TOKEN: '',
   LINE_ADMIN_ID: '',
-  
+
   // Sheety.co API (optional - สำหรับปุ่มทางลัด)
-  SHEETY_API_URL: '1BJq47HiG2iaBA5HegYKSAMqfSy7fqKeQxe_7ZLQemX0',
-  
- SHEETS: {
+  SHEETY_API_URL: '', // ไม่ได้ใช้งานแล้ว — ตั้งค่า Sheety.co API URL ถ้าต้องการใช้
+
+  SHEETS: {
     BOOKINGS: 'Bookings',
     STAFFS: 'Staffs',
     SERVICES: 'Services',
@@ -46,7 +47,7 @@ const CONFIG = {
     SETTINGS: 'Settings',
     REVIEWS: 'Reviews'
   },
-  
+
   STATUS: {
     PENDING_PAYMENT: 'รอชำระเงิน',
     PAYMENT_UPLOADED: 'แจ้งชำระแล้ว',
@@ -62,40 +63,34 @@ const CONFIG = {
 // ============================================
 
 function doPost(e) {
-  const lock = LockService.getScriptLock();
   const startTime = new Date().getTime();
-  
+
   try {
-    if (!lock.tryLock(30000)) {
-      return jsonResponse({ status: 'error', message: 'Server busy, try again' });
-    }
-    
     // Parse request data first
     const data = parseRequest(e);
-    
+
     // Action can be in parameter (URL) or data (Body)
     const action = e.parameter?.action || data.action;
     console.log(`[doPost] Action: ${action}, Time: ${new Date().toISOString()}`);
-    
+
     if (!action) {
       return jsonResponse({ status: 'error', message: 'Action required' });
     }
-    
+
+    // Lock จัดการใน routeRequest() เฉพาะ modifying actions เท่านั้น
     const result = routeRequest(action, data);
-    
+
     const endTime = new Date().getTime();
     console.log(`[doPost] Completed in ${endTime - startTime}ms`);
-    
+
     return jsonResponse(result);
-    
+
   } catch (error) {
     console.error('[doPost Error]', error);
-    return jsonResponse({ 
-      status: 'error', 
+    return jsonResponse({
+      status: 'error',
       message: error.toString()
     });
-  } finally {
-    lock.releaseLock();
   }
 }
 
@@ -112,14 +107,14 @@ function doGet(e) {
       }
       return jsonResponse(routeRequest(action, data));
     }
-    
+
     // หากไม่มี action ให้แสดงหน้าเว็บ (index.html)
     return HtmlService.createTemplateFromFile('index')
       .evaluate()
       .setTitle('GY-Nail Booking System')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-      
+
   } catch (error) {
     console.error('[doGet Error]', error);
     return HtmlService.createHtmlOutput('เกิดข้อผิดพลาด: ' + error.toString());
@@ -133,7 +128,7 @@ function doGet(e) {
 function routeRequest(action, data) {
   // Actions that modify data should use a lock
   const modifyingActions = ['submitBooking', 'updateBookingStatus', 'deleteBooking', 'saveSettings', 'submitReview', 'updateReviewStatus', 'uploadImage', 'deleteImage', 'setShopStatus', 'addSpecialDate', 'removeSpecialDate'];
-  
+
   let lock;
   if (modifyingActions.includes(action)) {
     lock = LockService.getScriptLock();
@@ -154,7 +149,7 @@ function routeRequest(action, data) {
     'updateBookingStatus': () => updateBookingStatus(data),
     'deleteBooking': () => deleteBooking(data),
     'saveSettings': () => saveSettings(data),
-    
+
     // Extended API
     'getServices': () => getServices(data),
     'getStaffs': () => getStaffs(data),
@@ -164,20 +159,20 @@ function routeRequest(action, data) {
     'getCustomerProfile': () => getCustomerProfile(data),
     'getRevenueReport': () => getRevenueReport(data),
     'getDashboardStats': () => getDashboardStats(data),
-    
+
     // Shop Status & Calendar
     'getShopStatus': () => getShopStatus(),
     'setShopStatus': () => setShopStatus(data),
     'getSpecialDates': () => getSpecialDates(),
     'addSpecialDate': () => addSpecialDate(data),
     'removeSpecialDate': () => removeSpecialDate(data),
-    
+
     // Reviews & AI
     'submitReview': () => submitReview(data),
     'getReviews': () => getReviews(data),
     'updateReviewStatus': () => updateReviewStatus(data),
     'getAIAdvice': () => getAIAdvice(data),
-    
+
     // Drive & Gallery
     'uploadImage': () => uploadImage(data),
     'getPortfolio': () => getPortfolio(data),
@@ -185,13 +180,13 @@ function routeRequest(action, data) {
     'getGalleryFolderInfo': () => getGalleryFolderInfo(),
     'seedReviews': () => seedReviews()
   };
-  
+
   const handler = routes[action];
   if (!handler) {
     if (lock) lock.releaseLock();
     throw new Error(`Unknown action: ${action}`);
   }
-  
+
   try {
     return handler();
   } finally {
@@ -207,11 +202,16 @@ function getPublicSettings() {
   const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
   const data = sheet.getDataRange().getValues();
   const settings = {};
-  
+
   for (let i = 1; i < data.length; i++) {
     if (data[i][0]) settings[data[i][0]] = data[i][1];
   }
-  
+
+  // เติมค่า default หากยังไม่มีในระบบ (แสดงให้ Admin เห็น)
+  if (!settings['notifyEmails']) {
+    settings['notifyEmails'] = 'sirurai1995@gmail.com,nattharika1509@gmail.com';
+  }
+
   return settings;
 }
 
@@ -224,11 +224,11 @@ function getBookedSlots(data) {
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
   const rows = sheet.getDataRange().getValues();
   const booked = [];
-  
+
   for (let i = 1; i < rows.length; i++) {
     const rowDate = formatDateISO(rows[i][1]);
     const status = rows[i][15];
-    
+
     if (status === CONFIG.STATUS.CANCELLED) continue;
 
     if (rowDate === date) {
@@ -240,7 +240,7 @@ function getBookedSlots(data) {
       });
     }
   }
-  
+
   return {
     booked: booked,
     shopStatus: shopCheck.status === 'ok' ? 'open' : 'closed',
@@ -255,7 +255,7 @@ function submitBooking(data) {
   for (const field of required) {
     if (!data[field]) return { status: 'error', message: `Missing: ${field}` };
   }
-  
+
   const shopCheck = checkShopAvailability(data.date);
   if (shopCheck.status === 'error') return shopCheck;
 
@@ -273,20 +273,27 @@ function submitBooking(data) {
     const rowTime = String(existingBookings[i][2]).trim();
     const rowPhone = String(existingBookings[i][5]).replace(/-/g, '');
     const rowStatus = existingBookings[i][15];
-    
+
     if (rowStatus === CONFIG.STATUS.CANCELLED) continue;
 
     if (rowDate === data.date && rowTime === data.time) {
-      const isBlockingStatus = [
-        CONFIG.STATUS.CONFIRMED,
-        CONFIG.STATUS.PAYMENT_UPLOADED,
-        CONFIG.STATUS.IN_SERVICE,
-        CONFIG.STATUS.COMPLETED,
-        CONFIG.STATUS.PENDING_PAYMENT
-      ].includes(rowStatus);
-      
-      if (isBlockingStatus) {
-        return { status: 'error', message: 'เวลานี้ถูกจองแล้ว กรุณาเลือกเวลาอื่น' };
+      // ตรวจสอบ staffId — ถ้าเป็นช่างคนละคนให้จองได้
+      const rowStaffId = String(existingBookings[i][3]).trim();
+      const dataStaffId = String(data.staffId || '-').trim();
+      const isSameStaff = (dataStaffId === '-' || rowStaffId === '-' || dataStaffId === rowStaffId);
+
+      if (isSameStaff) {
+        const isBlockingStatus = [
+          CONFIG.STATUS.CONFIRMED,
+          CONFIG.STATUS.PAYMENT_UPLOADED,
+          CONFIG.STATUS.IN_SERVICE,
+          CONFIG.STATUS.COMPLETED,
+          CONFIG.STATUS.PENDING_PAYMENT
+        ].includes(rowStatus);
+
+        if (isBlockingStatus) {
+          return { status: 'error', message: 'เวลานี้ถูกจองแล้ว กรุณาเลือกเวลาอื่น' };
+        }
       }
     }
 
@@ -297,15 +304,15 @@ function submitBooking(data) {
         CONFIG.STATUS.IN_SERVICE,
         CONFIG.STATUS.PENDING_PAYMENT
       ].includes(rowStatus);
-      
+
       if (activeStatus) {
         return { status: 'error', message: 'เบอร์นี้มีคิวจองในวันเดียวกันแล้ว กรุณาตรวจสอบสถานะการจอง' };
       }
     }
   }
-  
+
   const orderId = 'GY-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMddHHmmss');
-  
+
   sheet.appendRow([
     orderId, data.date, data.time, data.staffId || '-',
     data.name, "'" + data.phone, data.service, data.service,
@@ -314,7 +321,16 @@ function submitBooking(data) {
     data.address || '-', data.price || '0',
     CONFIG.STATUS.PENDING_PAYMENT, '', new Date(), '', '', '', ''
   ]);
-  
+
+  // ส่งอีเมลแจ้งเตือนเมื่อมีการจองใหม่
+  try {
+    notifyNewBooking({
+      orderId, name: data.name, phone: data.phone,
+      service: data.service, date: data.date, time: data.time,
+      price: data.price || '0', location: data.locationType || 'ทำที่ร้าน'
+    });
+  } catch (e) { console.error('Email notification error:', e); }
+
   return { status: 'success', orderId: orderId };
 }
 
@@ -322,12 +338,12 @@ function searchBooking(data) {
   const key = String(data.key).trim();
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
   const rows = sheet.getDataRange().getValues();
-  
+
   for (let i = rows.length - 1; i >= 1; i--) {
     const orderId = String(rows[i][0]);
     const phone = String(rows[i][5]).replace(/-/g, '');
     const searchKey = key.replace(/-/g, '');
-    
+
     if (orderId === key || phone === searchKey) {
       return {
         status: 'found',
@@ -340,50 +356,32 @@ function searchBooking(data) {
       };
     }
   }
-  
+
   return { status: 'not_found' };
 }
 
 function adminLogin(data) {
-  console.log('[adminLogin] Received data:', JSON.stringify(data));
-  
-  if (!data) {
-    console.log('[adminLogin] Error: No data received');
-    return { status: 'error', message: 'No data received' };
-  }
-  
-  if (!data.pass) {
-    console.log('[adminLogin] Error: Password missing. Data keys:', Object.keys(data));
+  if (!data || !data.pass) {
     return { status: 'error', message: 'Password required' };
   }
-  
+
   const settings = getPublicSettings();
-  console.log('[adminLogin] Settings loaded, adminPassword exists:', !!settings.adminPassword);
-  
   const pass = settings.adminPassword || 'admin123';
-  console.log('[adminLogin] Checking password...');
-  
+
   if (data.pass === pass) {
-    console.log('[adminLogin] Success');
     return { status: 'success' };
   }
-  
-  console.log('[adminLogin] Failed: Password mismatch');
+
   return { status: 'error', message: 'Invalid password' };
 }
 
 function getAdminData() {
   try {
-    console.log('[getAdminData] Starting...');
     const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
-    console.log('[getAdminData] Sheet loaded');
-    
     const rows = sheet.getDataRange().getValues();
-    console.log('[getAdminData] Total rows:', rows.length);
-    
     const bookings = [];
-    const maxRows = Math.min(rows.length, 1000); // Limit to prevent timeout
-    
+    const maxRows = Math.min(rows.length, 1000);
+
     for (let i = 1; i < maxRows; i++) {
       try {
         bookings.push({
@@ -393,16 +391,13 @@ function getAdminData() {
           price: rows[i][14], slipUrl: rows[i][16]
         });
       } catch (rowError) {
-        console.log('[getAdminData] Error at row', i, ':', rowError.toString());
+        console.error('[getAdminData] Error at row', i, ':', rowError.toString());
       }
     }
-    
+
     bookings.reverse();
-    console.log('[getAdminData] Bookings processed:', bookings.length);
-    
     const settings = getPublicSettings();
-    console.log('[getAdminData] Settings loaded');
-    
+
     return { status: 'success', settings: settings, bookings: bookings };
   } catch (error) {
     console.error('[getAdminData] Error:', error);
@@ -413,9 +408,9 @@ function getAdminData() {
 function updateBookingStatus(data) {
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
   const row = parseInt(data.rowIndex);
-  
+
   sheet.getRange(row, 16).setValue(data.status);
-  
+
   const bookingRow = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
   const booking = {
     orderId: bookingRow[0], date: bookingRow[1], time: bookingRow[2],
@@ -423,7 +418,7 @@ function updateBookingStatus(data) {
     phone: bookingRow[5], location: bookingRow[12], price: bookingRow[14],
     address: bookingRow[13], duration: bookingRow[10] || 60
   };
-  
+
   let calendarLink = '';
   if (data.status === CONFIG.STATUS.CONFIRMED) {
     sheet.getRange(row, 20).setValue('Admin');
@@ -431,17 +426,25 @@ function updateBookingStatus(data) {
     const calResult = addBookingToCalendar(booking);
     if (calResult) calendarLink = calResult.calendarLink;
   }
-  
+
   if (data.status === CONFIG.STATUS.CANCELLED) {
     removeBookingFromCalendar(booking.orderId);
   }
-  
+
   return { status: 'success', calendarLink: calendarLink };
 }
 
 function deleteBooking(data) {
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
-  sheet.deleteRow(parseInt(data.rowIndex));
+  const row = parseInt(data.rowIndex);
+
+  // ดึง orderId ก่อนลบแถว เพื่อลบ calendar event ด้วย
+  try {
+    const orderId = sheet.getRange(row, 1).getValue();
+    if (orderId) removeBookingFromCalendar(orderId);
+  } catch (e) { console.log('Could not remove calendar event:', e); }
+
+  sheet.deleteRow(row);
   return { status: 'success' };
 }
 
@@ -449,26 +452,32 @@ function saveSettings(data) {
   const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
   // ปรับการดึงข้อมูลเพื่อให้รองรับโครงสร้างข้อมูลที่อาจซ้อนกันมาจากการส่งแบบ POST
   const settingsToSave = data.settings?.settings || data.settings || data;
-  
+
   console.log('[saveSettings] Data to save keys:', Object.keys(settingsToSave).join(','));
-  
+
+  // อ่านข้อมูลเพียงครั้งเดียว (แก้ BUG-04: ลด API calls ป้องกัน timeout)
+  let rows = sheet.getDataRange().getValues();
+
   for (const key in settingsToSave) {
     if (key === 'action') continue;
-    
-    const rows = sheet.getDataRange().getValues();
+
     let found = false;
-    
+
     for (let i = 1; i < rows.length; i++) {
       if (rows[i][0] === key) {
         sheet.getRange(i + 1, 2).setValue(settingsToSave[key]);
+        rows[i][1] = settingsToSave[key]; // อัปเดต local copy
         found = true;
         break;
       }
     }
-    
-    if (!found) sheet.appendRow([key, settingsToSave[key]]);
+
+    if (!found) {
+      sheet.appendRow([key, settingsToSave[key]]);
+      rows.push([key, settingsToSave[key]]); // เพิ่มใน local copy
+    }
   }
-  
+
   return { status: 'success' };
 }
 
@@ -480,7 +489,7 @@ function getServices(data) {
   const sheet = getSheet(CONFIG.SHEETS.SERVICES);
   const rows = sheet.getDataRange().getValues();
   const services = [];
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][7] !== false && rows[i][7] !== 'FALSE') {
       services.push({
@@ -490,7 +499,7 @@ function getServices(data) {
       });
     }
   }
-  
+
   return { status: 'success', data: services };
 }
 
@@ -498,7 +507,7 @@ function getStaffs(data) {
   const sheet = getSheet(CONFIG.SHEETS.STAFFS);
   const rows = sheet.getDataRange().getValues();
   const staffs = [];
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][6] !== false && rows[i][6] !== 'FALSE') {
       staffs.push({
@@ -508,7 +517,7 @@ function getStaffs(data) {
       });
     }
   }
-  
+
   return { status: 'success', data: staffs };
 }
 
@@ -517,14 +526,15 @@ function getAvailableSlots(data) {
   const settings = getPublicSettings();
   const timeSlots = settings.timeSlots || '10:00,11:30,13:00,14:30,16:00,17:30';
   const allSlots = timeSlots.split(',').map(s => s.trim());
-  
-  const bookedSlots = getBookedSlots({ date });
-  
+
+  const bookedResult = getBookedSlots({ date });
+  const bookedSlots = bookedResult.booked || [];
+
   const availableSlots = allSlots.filter(slot => {
     const isBooked = bookedSlots.some(booked => booked.time === slot);
     return !isBooked;
   });
-  
+
   return { status: 'success', data: availableSlots };
 }
 
@@ -533,11 +543,11 @@ function getBookingsByDate(data) {
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
   const rows = sheet.getDataRange().getValues();
   const bookings = [];
-  
+
   for (let i = 1; i < rows.length; i++) {
     const rowDate = formatDateISO(rows[i][1]);
     const status = rows[i][15];
-    
+
     if (rowDate === date && status !== CONFIG.STATUS.CANCELLED) {
       bookings.push({
         orderId: rows[i][0], time: rows[i][2], service: rows[i][7],
@@ -545,7 +555,7 @@ function getBookingsByDate(data) {
       });
     }
   }
-  
+
   bookings.sort((a, b) => a.time.localeCompare(b.time));
   return { status: 'success', data: bookings };
 }
@@ -555,20 +565,20 @@ function getCustomers(data) {
   const sheet = getSheet(CONFIG.SHEETS.CUSTOMERS);
   const rows = sheet.getDataRange().getValues();
   const customers = [];
-  
+
   for (let i = 1; i < rows.length && customers.length < limit; i++) {
     if (search) {
       const name = String(rows[i][2] || '').toLowerCase();
       const phone = String(rows[i][1] || '');
       if (!name.includes(search.toLowerCase()) && !phone.includes(search)) continue;
     }
-    
+
     customers.push({
       id: rows[i][0], phone: rows[i][1], name: rows[i][2],
       hairType: rows[i][6], totalVisits: rows[i][11] || 0, lastVisit: rows[i][13]
     });
   }
-  
+
   return { status: 'success', data: customers };
 }
 
@@ -576,7 +586,7 @@ function getCustomerProfile(data) {
   const { customerId } = data;
   const sheet = getSheet(CONFIG.SHEETS.CUSTOMERS);
   const rows = sheet.getDataRange().getValues();
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === customerId) {
       return {
@@ -590,7 +600,7 @@ function getCustomerProfile(data) {
       };
     }
   }
-  
+
   return { status: 'error', message: 'Customer not found' };
 }
 
@@ -599,21 +609,28 @@ function getRevenueReport(data) {
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
   const rows = sheet.getDataRange().getValues();
   const report = {};
-  
+
+  // ใช้เกณฑ์เดียวกับ getDashboardStats เพื่อให้ตัวเลขตรงกัน
+  const revenueStatuses = [
+    CONFIG.STATUS.CONFIRMED,
+    CONFIG.STATUS.COMPLETED,
+    CONFIG.STATUS.IN_SERVICE
+  ];
+
   for (let i = 1; i < rows.length; i++) {
     const date = formatDateISO(rows[i][1]);
     const status = rows[i][15];
     const price = parseFloat(rows[i][14]) || 0;
-    
-    if (status !== CONFIG.STATUS.COMPLETED) continue;
+
+    if (!revenueStatuses.includes(status)) continue;
     if (startDate && date < startDate) continue;
     if (endDate && date > endDate) continue;
-    
+
     if (!report[date]) report[date] = { date: date, revenue: 0, count: 0 };
     report[date].revenue += price;
     report[date].count += 1;
   }
-  
+
   return { status: 'success', data: Object.values(report).sort((a, b) => a.date.localeCompare(b.date)) };
 }
 
@@ -621,15 +638,15 @@ function getDashboardStats(data) {
   const now = new Date();
   const today = formatDateISO(now);
   const monthStart = today.substring(0, 7) + '-01';
-  
+
   const sheet = getSheet(CONFIG.SHEETS.BOOKINGS);
   const rows = sheet.getDataRange().getValues();
-  
+
   let todayRevenue = 0, todayCount = 0;
   let monthRevenue = 0, monthCount = 0;
   let totalRevenue = 0;
   let pendingCount = 0;
-  
+
   // 7 Days Chart Data
   const last7Days = [];
   for (let i = 6; i >= 0; i--) {
@@ -642,32 +659,32 @@ function getDashboardStats(data) {
       count: 0
     });
   }
-  
+
   // Stats by Service
   const byService = {};
-  
+
   for (let i = 1; i < rows.length; i++) {
     const rowDate = formatDateISO(rows[i][1]);
     const status = rows[i][15];
     const price = parseFloat(rows[i][14]) || 0;
     const serviceName = rows[i][7];
-    
+
     // Revenue logic: Only Completed, Confirmed, or In Service
     const isRevenueStatus = [
-      CONFIG.STATUS.CONFIRMED, 
-      CONFIG.STATUS.COMPLETED, 
+      CONFIG.STATUS.CONFIRMED,
+      CONFIG.STATUS.COMPLETED,
       CONFIG.STATUS.IN_SERVICE
     ].includes(status);
-    
+
     if (isRevenueStatus) {
       totalRevenue += price;
       if (rowDate === today) { todayRevenue += price; todayCount++; }
       if (rowDate >= monthStart && rowDate <= today) { monthRevenue += price; monthCount++; }
-      
+
       // 7 Days Chart
       const dayData = last7Days.find(d => d.date === rowDate);
       if (dayData) { dayData.revenue += price; dayData.count++; }
-      
+
       // By Service
       if (serviceName && serviceName !== '-') {
         if (!byService[serviceName]) byService[serviceName] = { count: 0, revenue: 0 };
@@ -675,27 +692,27 @@ function getDashboardStats(data) {
         byService[serviceName].revenue += price;
       }
     }
-    
+
     // Count Pending (Payment Uploaded)
     if (status === CONFIG.STATUS.PAYMENT_UPLOADED) pendingCount++;
   }
-  
+
   // Sort and Slice Top 5 Services
   const topServices = Object.keys(byService)
     .map(name => ({ name, ...byService[name] }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  return { 
-    status: 'success', 
-    data: { 
-      today: { revenue: todayRevenue, count: todayCount }, 
+  return {
+    status: 'success',
+    data: {
+      today: { revenue: todayRevenue, count: todayCount },
       month: { revenue: monthRevenue, count: monthCount },
       total: { revenue: totalRevenue },
       pending: pendingCount,
       chart7Days: last7Days,
       topServices: topServices
-    } 
+    }
   };
 }
 
@@ -708,17 +725,17 @@ function getShopStatus() {
   const data = sheet.getDataRange().getValues();
   let isOpen = true;
   let specialDates = [];
-  
+
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === 'shopOpen') isOpen = data[i][1] === 'true' || data[i][1] === true;
     if (data[i][0] === 'specialDates') {
-      try { specialDates = JSON.parse(data[i][1]) || []; } catch(e) { specialDates = []; }
+      try { specialDates = JSON.parse(data[i][1]) || []; } catch (e) { specialDates = []; }
     }
   }
-  
+
   const today = formatDateISO(new Date());
   const todaySpecial = specialDates.find(d => d.date === today);
-  
+
   return {
     status: 'success',
     data: { isOpen: isOpen, specialDates: specialDates, todayStatus: todaySpecial ? todaySpecial.status : (isOpen ? 'open' : 'closed'), todayNote: todaySpecial ? todaySpecial.note : '' }
@@ -729,7 +746,7 @@ function setShopStatus(data) {
   const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
   const rows = sheet.getDataRange().getValues();
   let found = false;
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === 'shopOpen') {
       sheet.getRange(i + 1, 2).setValue(data.isOpen ? 'true' : 'false');
@@ -737,7 +754,7 @@ function setShopStatus(data) {
       break;
     }
   }
-  
+
   if (!found) sheet.appendRow(['shopOpen', data.isOpen ? 'true' : 'false']);
   return { status: 'success', message: data.isOpen ? 'Shop opened' : 'Shop closed' };
 }
@@ -745,10 +762,10 @@ function setShopStatus(data) {
 function getSpecialDates() {
   const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
   const rows = sheet.getDataRange().getValues();
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === 'specialDates') {
-      try { return { status: 'success', data: JSON.parse(rows[i][1]) || [] }; } catch(e) { return { status: 'success', data: [] }; }
+      try { return { status: 'success', data: JSON.parse(rows[i][1]) || [] }; } catch (e) { return { status: 'success', data: [] }; }
     }
   }
   return { status: 'success', data: [] };
@@ -759,27 +776,27 @@ function addSpecialDate(data) {
   const rows = sheet.getDataRange().getValues();
   let specialDates = [];
   let rowIndex = -1;
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === 'specialDates') {
-      try { specialDates = JSON.parse(rows[i][1]) || []; } catch(e) { specialDates = []; }
+      try { specialDates = JSON.parse(rows[i][1]) || []; } catch (e) { specialDates = []; }
       rowIndex = i + 1;
       break;
     }
   }
-  
+
   specialDates.push(data.date);
-  
+
   if (rowIndex > 0) sheet.getRange(rowIndex, 2).setValue(JSON.stringify(specialDates));
   else sheet.appendRow(['specialDates', JSON.stringify(specialDates)]);
-  
+
   return { status: 'success' };
 }
 
 function removeSpecialDate(data) {
   const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
   const rows = sheet.getDataRange().getValues();
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === 'specialDates') {
       try {
@@ -787,7 +804,7 @@ function removeSpecialDate(data) {
         specialDates.splice(data.index, 1);
         sheet.getRange(i + 1, 2).setValue(JSON.stringify(specialDates));
         return { status: 'success' };
-      } catch(e) { return { status: 'error', message: e.toString() }; }
+      } catch (e) { return { status: 'error', message: e.toString() }; }
     }
   }
   return { status: 'error', message: 'Special dates not found' };
@@ -804,17 +821,17 @@ function addBookingToCalendar(booking) {
       console.warn(`Calendar with ID ${CONFIG.CALENDAR_ID} not found, falling back to primary calendar.`);
       calendar = CalendarApp.getDefaultCalendar();
     }
-    
+
     if (!calendar) { console.error('No accessible calendar found'); return null; }
-    
+
     const dateStr = typeof booking.date === 'string' ? booking.date : formatDateISO(booking.date);
     const dateParts = dateStr.split('-');
     const timeParts = String(booking.time).split(':');
-    
+
     const startTime = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]), parseInt(timeParts[0]), parseInt(timeParts[1]));
     const duration = parseInt(booking.duration) || 60;
     const endTime = new Date(startTime.getTime() + (duration * 60 * 1000));
-    
+
     const event = calendar.createEvent(
       `💅 [GY-Nail] ${booking.service} - ${booking.customerName}`,
       startTime, endTime,
@@ -832,23 +849,23 @@ function addBookingToCalendar(booking) {
         location: booking.location === 'ทำที่ร้าน' ? 'GY-Nail Shop' : (booking.address || booking.location)
       }
     );
-    
+
     event.setColor(CalendarApp.EventColor.ROSE);
     event.removeAllReminders();
     event.addPopupReminder(30);
     event.addPopupReminder(120);
     event.addEmailReminder(1440);
     event.addEmailReminder(120);
-    
+
     const staffEmails = getNotifyEmails();
     staffEmails.forEach(email => {
       try {
         if (email && email !== CONFIG.CALENDAR_ID) {
           event.addGuest(email);
         }
-      } catch(e) { console.log('Could not add guest:', email, e); }
+      } catch (e) { console.log('Could not add guest:', email, e); }
     });
-    
+
     console.log('Calendar event created:', event.getId());
     return {
       eventId: event.getId(),
@@ -874,11 +891,12 @@ function removeBookingFromCalendar(orderId) {
   try {
     const calendar = CalendarApp.getCalendarById(CONFIG.CALENDAR_ID);
     if (!calendar) return;
-    
-    const startDate = new Date();
-    const endDate = new Date(startDate.getTime() + (90 * 24 * 60 * 60 * 1000));
+
+    // ค้นหาทั้งอดีตและอนาคต 90 วัน (แก้ BUG-06: ยกเลิกจองที่ผ่านไปแล้วได้)
+    const startDate = new Date(Date.now() - (90 * 24 * 60 * 60 * 1000));
+    const endDate = new Date(Date.now() + (90 * 24 * 60 * 60 * 1000));
     const events = calendar.getEvents(startDate, endDate);
-    
+
     for (const event of events) {
       if (event.getDescription().includes(orderId)) {
         event.deleteEvent();
@@ -895,24 +913,82 @@ function sendBookingReminders() {
   const now = new Date();
   const tomorrow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
   const tomorrowStr = formatDateISO(tomorrow);
-  
+  const emails = getNotifyEmails();
+
   let sent = 0;
+  const reminderList = [];
+
   for (let i = 1; i < rows.length; i++) {
     const rowDate = formatDateISO(rows[i][1]);
     const status = rows[i][15];
-    
+
     if (rowDate === tomorrowStr && status === CONFIG.STATUS.CONFIRMED) {
-      const booking = {
-        orderId: rows[i][0], date: rows[i][1], time: rows[i][2],
+      reminderList.push({
+        orderId: rows[i][0], time: String(rows[i][2]).trim(),
         service: rows[i][7], customerName: rows[i][4], phone: rows[i][5]
-      };
-      console.log(`Reminder: ${booking.customerName} - ${booking.time} tomorrow`);
+      });
       sent++;
     }
   }
-  
-  console.log(`Booking reminders processed: ${sent} for ${tomorrowStr}`);
+
+  // ส่งอีเมลสรุปคิวพรุ่งนี้ให้ช่าง/admin
+  if (reminderList.length > 0 && emails.length > 0) {
+    try {
+      let dateDisplay = tomorrowStr;
+      try { dateDisplay = new Date(tomorrowStr).toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { }
+
+      let body = `💅 GY-Nail สรุปคิวพรุ่งนี้ (${dateDisplay})\n`;
+      body += `จำนวนคิว: ${reminderList.length} คิว\n\n`;
+
+      reminderList.sort((a, b) => a.time.localeCompare(b.time));
+      reminderList.forEach((b, idx) => {
+        body += `${idx + 1}. ⏰ ${b.time} | ${b.customerName} | ${b.service} | ${b.phone}\n`;
+      });
+
+      body += `\n--- GY-Nail Booking System ---`;
+
+      MailApp.sendEmail({
+        to: emails.join(','),
+        subject: `💅 GY-Nail: คิวพรุ่งนี้ ${reminderList.length} คิว (${dateDisplay})`,
+        body: body
+      });
+      console.log(`Reminders email sent to: ${emails.join(',')}`);
+    } catch (e) { console.error('Reminder email error:', e); }
+  }
+
   return { status: 'success', reminders: sent, date: tomorrowStr };
+}
+
+// ส่งอีเมลแจ้งเตือนเมื่อมีการจองใหม่
+function notifyNewBooking(booking) {
+  const emails = getNotifyEmails();
+  if (emails.length === 0) return;
+
+  let dateDisplay = booking.date;
+  try { dateDisplay = new Date(booking.date).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { }
+
+  const body = [
+    `🔔 มีการจองใหม่!`,
+    ``,
+    `🆔 รหัส: ${booking.orderId}`,
+    `👤 ชื่อ: ${booking.name}`,
+    `📞 เบอร์: ${booking.phone}`,
+    `💅 บริการ: ${booking.service}`,
+    `📅 วันที่: ${dateDisplay}`,
+    `⏰ เวลา: ${booking.time}`,
+    `📍 สถานที่: ${booking.location}`,
+    `💰 ราคา: ${booking.price} บาท`,
+    ``,
+    `สถานะ: รอชำระเงิน`,
+    ``,
+    `--- GY-Nail Booking System ---`
+  ].join('\n');
+
+  MailApp.sendEmail({
+    to: emails.join(','),
+    subject: `🔔 GY-Nail: จองใหม่ ${booking.orderId} | ${booking.name} | ${booking.time}`,
+    body: body
+  });
 }
 
 // ============================================
@@ -921,13 +997,13 @@ function sendBookingReminders() {
 
 function submitReview(data) {
   const { orderId, rating, review, customerName } = data;
-  
+
   if (!orderId || !rating) {
     return { status: 'error', message: 'กรุณาระบุรหัสจองและคะแนน' };
   }
-  
+
   const sheet = getSheet('Reviews');
-  
+
   // Check if already reviewed
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
@@ -935,47 +1011,62 @@ function submitReview(data) {
       return { status: 'error', message: 'รายการนี้ได้รีวิวไปแล้ว' };
     }
   }
-  
+
+  // ค้นหาชื่อลูกค้าจริงจาก Bookings (แก้ BUG-28: ไม่ใช้ชื่อ hardcoded)
+  let realName = customerName || 'Anonymous';
+  if (!customerName || customerName === 'ลูกค้า' || customerName === 'Anonymous') {
+    try {
+      const bookingSheet = getSheet(CONFIG.SHEETS.BOOKINGS);
+      const bookings = bookingSheet.getDataRange().getValues();
+      for (let i = 1; i < bookings.length; i++) {
+        if (String(bookings[i][0]) === orderId) {
+          realName = bookings[i][4] || realName;
+          break;
+        }
+      }
+    } catch (e) { console.log('Could not look up customer name:', e); }
+  }
+
   sheet.appendRow([
     orderId,
-    customerName || 'Anonymous',
+    realName,
     parseInt(rating),
     review || '',
     new Date(),
     'pending' // status: pending, approved, rejected
   ]);
-  
+
   return { status: 'success', message: 'ขอบคุณสำหรับรีวิวค่ะ' };
 }
 
 function seedReviews() {
   const sheet = getSheet('Reviews');
   const names = [
-    'คุณแพร','คุณมิ้นท์','คุณเบลล์','คุณไอซ์','คุณนุ่น','คุณปิ่น','คุณเฟิร์น','คุณจูน',
-    'คุณออม','คุณแนน','คุณพลอย','คุณกิ๊ฟ','คุณเจน','คุณนิว','คุณมายด์','คุณแก้ม',
-    'คุณบีม','คุณฝ้าย','คุณหมิว','คุณปาล์ม','คุณเอิร์น','คุณวิว','คุณจ๋า','คุณโบว์',
-    'คุณแพรว','คุณมุก','คุณต้า','คุณกุ๊กกิ๊ก','คุณเนย','คุณซี'
+    'คุณแพร', 'คุณมิ้นท์', 'คุณเบลล์', 'คุณไอซ์', 'คุณนุ่น', 'คุณปิ่น', 'คุณเฟิร์น', 'คุณจูน',
+    'คุณออม', 'คุณแนน', 'คุณพลอย', 'คุณกิ๊ฟ', 'คุณเจน', 'คุณนิว', 'คุณมายด์', 'คุณแก้ม',
+    'คุณบีม', 'คุณฝ้าย', 'คุณหมิว', 'คุณปาล์ม', 'คุณเอิร์น', 'คุณวิว', 'คุณจ๋า', 'คุณโบว์',
+    'คุณแพรว', 'คุณมุก', 'คุณต้า', 'คุณกุ๊กกิ๊ก', 'คุณเนย', 'คุณซี'
   ];
   const reviews = [
-    'สวยมากค่ะ ทำดีมาก ชอบมากๆ','ร้านน่ารัก บรรยากาศดี ช่างฝีมือดี','เล็บสวยมาก เพื่อนชมเยอะเลย',
-    'ทำละเอียดมากค่ะ ประทับใจ','ราคาคุ้มค่ามากๆ ค่ะ สวยด้วย','ช่างใจเย็น ทำออกมาตรงที่อยากได้เลย',
-    'เล็บอยู่ทนมากค่ะ ผ่าน 3 อาทิตย์ยังสวย','แนะนำเลยค่ะ ฝีมือดีมากๆ','ชอบลายที่ทำให้มากค่ะ ละเอียดสุดๆ',
-    'มาซ้ำแน่นอนค่ะ ประทับใจมาก','สีสวย ลายเก๋มากค่ะ ถูกใจ','ดูแลดีมากค่ะ ให้คำแนะนำดีด้วย',
-    'ทำเจลสวยมากค่ะ เนียนเรียบ','บรรยากาศร้านดี สะอาด สบายใจ','ราคาไม่แพง แต่คุณภาพเกินราคา',
-    'ช่างเก่งมากค่ะ ทำลายยากๆ ได้สวย','เล็บสวยปังมากค่ะ','ทำครั้งแรก ติดใจเลย มาอีกแน่ๆ',
-    'แนะนำลายสวยๆ ให้ด้วย ดีมากค่ะ','ต่อเล็บสวยเป็นธรรมชาติมาก','ทำเร็ว สวย ไม่ต้องรอนาน',
-    'ชอบที่ร้านสะอาดมากค่ะ อุปกรณ์ดี','สีเจลสวยมาก มีให้เลือกเยอะ','ทำเพ้นท์ลายละเอียดมากค่ะ',
-    'ช่างน่ารัก คุยสนุก ฝีมือดี','เล็บสวยทุกครั้งที่มาค่ะ','ราคาสมเหตุสมผล คุ้มค่ามาก',
-    'ทำเล็บเจลใส สวยวิ้งมากค่ะ','ประทับใจบริการมากค่ะ จะกลับมาอีก','ฝีมือระดับมืออาชีพเลยค่ะ สุดปัง'
+    'สวยมากค่ะ ทำดีมาก ชอบมากๆ', 'ร้านน่ารัก บรรยากาศดี ช่างฝีมือดี', 'เล็บสวยมาก เพื่อนชมเยอะเลย',
+    'ทำละเอียดมากค่ะ ประทับใจ', 'ราคาคุ้มค่ามากๆ ค่ะ สวยด้วย', 'ช่างใจเย็น ทำออกมาตรงที่อยากได้เลย',
+    'เล็บอยู่ทนมากค่ะ ผ่าน 3 อาทิตย์ยังสวย', 'แนะนำเลยค่ะ ฝีมือดีมากๆ', 'ชอบลายที่ทำให้มากค่ะ ละเอียดสุดๆ',
+    'มาซ้ำแน่นอนค่ะ ประทับใจมาก', 'สีสวย ลายเก๋มากค่ะ ถูกใจ', 'ดูแลดีมากค่ะ ให้คำแนะนำดีด้วย',
+    'ทำเจลสวยมากค่ะ เนียนเรียบ', 'บรรยากาศร้านดี สะอาด สบายใจ', 'ราคาไม่แพง แต่คุณภาพเกินราคา',
+    'ช่างเก่งมากค่ะ ทำลายยากๆ ได้สวย', 'เล็บสวยปังมากค่ะ', 'ทำครั้งแรก ติดใจเลย มาอีกแน่ๆ',
+    'แนะนำลายสวยๆ ให้ด้วย ดีมากค่ะ', 'ต่อเล็บสวยเป็นธรรมชาติมาก', 'ทำเร็ว สวย ไม่ต้องรอนาน',
+    'ชอบที่ร้านสะอาดมากค่ะ อุปกรณ์ดี', 'สีเจลสวยมาก มีให้เลือกเยอะ', 'ทำเพ้นท์ลายละเอียดมากค่ะ',
+    'ช่างน่ารัก คุยสนุก ฝีมือดี', 'เล็บสวยทุกครั้งที่มาค่ะ', 'ราคาสมเหตุสมผล คุ้มค่ามาก',
+    'ทำเล็บเจลใส สวยวิ้งมากค่ะ', 'ประทับใจบริการมากค่ะ จะกลับมาอีก', 'ฝีมือระดับมืออาชีพเลยค่ะ สุดปัง'
   ];
-  const services = ['ทำเจลสี','เพ้นท์ลาย','ต่อเล็บเจล','ทำเจลใส','ถอดเล็บ+ทำใหม่','เจล+เพชร','อะคริลิค'];
-  
+  const services = ['ทำเจลสี', 'เพ้นท์ลาย', 'ต่อเล็บเจล', 'ทำเจลใส', 'ถอดเล็บ+ทำใหม่', 'เจล+เพชร', 'อะคริลิค'];
+
   for (let i = 0; i < 30; i++) {
     const daysAgo = Math.floor(Math.random() * 60);
     const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
     const rating = Math.random() < 0.7 ? 5 : (Math.random() < 0.5 ? 4 : 3);
     const orderId = 'GY-SEED' + String(i + 1).padStart(3, '0');
-    
+
     sheet.appendRow([
       orderId,
       names[i],
@@ -985,7 +1076,7 @@ function seedReviews() {
       'approved'
     ]);
   }
-  
+
   console.log('Seeded 30 reviews!');
   return { status: 'success', message: 'สร้างรีวิว 30 รายการเรียบร้อย' };
 }
@@ -995,7 +1086,7 @@ function getReviews(data) {
   const sheet = getSheet('Reviews');
   const rows = sheet.getDataRange().getValues();
   const reviews = [];
-  
+
   for (let i = rows.length - 1; i >= 1 && reviews.length < limit; i--) {
     if (rows[i][5] === status || status === 'all') {
       reviews.push({
@@ -1008,15 +1099,15 @@ function getReviews(data) {
       });
     }
   }
-  
+
   // Calculate average rating
   const allApproved = rows.slice(1).filter(r => r[5] === 'approved');
-  const avgRating = allApproved.length > 0 
+  const avgRating = allApproved.length > 0
     ? (allApproved.reduce((sum, r) => sum + r[2], 0) / allApproved.length).toFixed(1)
     : 0;
-  
-  return { 
-    status: 'success', 
+
+  return {
+    status: 'success',
     data: reviews,
     summary: {
       average: avgRating,
@@ -1031,26 +1122,26 @@ function getReviews(data) {
 
 function getAIAdvice(data) {
   const { question, nailCondition, preferredStyle } = data;
-  
+
   if (!question) {
     return { status: 'error', message: 'กรุณาระบุคำถาม' };
   }
-  
+
   try {
     // Build prompt for nail consultant
     let prompt = `คุณเป็นผู้เชี่ยวชาญด้านการทำเล็บมืออาชีพ (Nail Technician) ชื่อ "น้องยุ้ยคนสวย" จากร้าน GY-Nail\n\n`;
     prompt += `ให้คำแนะนำเกี่ยวกับการทำเล็บแบบมืออาชีพ เข้าใจง่าย เป็นกันเอง ใช้ภาษาไทยเป็นหลัก พูดจาน่ารักสดใส\n\n`;
-    
+
     if (nailCondition) {
       prompt += `สภาพเล็บลูกค้า: ${nailCondition}\n`;
     }
     if (preferredStyle) {
       prompt += `สไตล์ที่ชอบ: ${preferredStyle}\n`;
     }
-    
+
     prompt += `\nคำถาม: ${question}\n\n`;
     prompt += `ให้คำแนะนำที่เป็นประโยชน์ ครบถ้วน และปลอดภัย หากเป็นเรื่องที่ต้องให้ช่างดูตัวจริง ให้แนะนำให้มาปรึกษาที่ร้าน`;
-    
+
     // Call Gemini API
     const apiKey = CONFIG.GEMINI_API_KEY || '';
     if (!apiKey) {
@@ -1063,9 +1154,9 @@ function getAIAdvice(data) {
         }
       };
     }
-    
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
-    
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
     const response = UrlFetchApp.fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1079,10 +1170,10 @@ function getAIAdvice(data) {
         }
       })
     });
-    
+
     const result = JSON.parse(response.getContentText());
     const advice = result.candidates[0].content.parts[0].text;
-    
+
     return {
       status: 'success',
       data: {
@@ -1090,7 +1181,7 @@ function getAIAdvice(data) {
         isAI: true
       }
     };
-    
+
   } catch (error) {
     console.error('AI Error:', error);
     // Return mock response on error
@@ -1107,10 +1198,10 @@ function getAIAdvice(data) {
 function getMockAIResponse(question, nailCondition, preferredStyle) {
   const responses = [
     `สวัสดีค่ะ! น้องยุ้ยเองนะคะ 😊\n\nจากที่เล่ามา${nailCondition ? ' เล็บ' + nailCondition : ''} แนะนำให้:\n\n1. **พักเล็บ** 2-3 สัปดาห์ก่อนต่อใหม่\n2. ทา **บำรุงเล็บ** วันละ 2 ครั้ง\n3. เลือกสีที่อ่อนโยน เช่น นู้ด หรือชมพูอ่อน\n\nถ้าไม่แน่ใจ แนะนำให้มาปรึกษาที่ร้านก่อนนะคะ น้องยุ้ยจะดูสภาพเล็บจริงๆ ให้ค่ะ 💅`,
-    
+
     `หวัดดีค่ะ! น้องยุ้ยตอบนะคะ ✨\n\nสำหรับ${preferredStyle || 'สไตล์ที่ชอบ'} แนะนำ:\n\n• **ทรงเล็บ Almond** - ดูเรียวยาว นิ้วดูยาว\n• **สีเจลสีนู้ด** หรือ **French** - คลาสสิก ใช้ได้ทุกโอกาส\n• แอดออน **เพชรเล็กๆ** 1-2 เม็ด - ดูหรูหราแต่ไม่เยอะ\n\nราคาประมาณ 200-350 บาทค่ะ\n\nต้องการจองคิวสอบถามเพิ่มเติมได้เลยนะคะ 💕`
   ];
-  
+
   return responses[Math.floor(Math.random() * responses.length)];
 }
 
@@ -1118,14 +1209,14 @@ function updateReviewStatus(data) {
   const { orderId, status } = data;
   const sheet = getSheet('Reviews');
   const rows = sheet.getDataRange().getValues();
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === orderId) {
       sheet.getRange(i + 1, 6).setValue(status);
       return { status: 'success' };
     }
   }
-  
+
   return { status: 'error', message: 'Review not found' };
 }
 
@@ -1138,32 +1229,30 @@ function getSheet(sheetName) {
     let ss;
     if (CONFIG.SHEET_ID && CONFIG.SHEET_ID !== 'YOUR_SHEET_ID_HERE') {
       try {
-        console.log(`[getSheet] Attempting to open sheet by ID: ${CONFIG.SHEET_ID}`);
         ss = SpreadsheetApp.openById(CONFIG.SHEET_ID);
       } catch (e) {
-        console.warn(`[getSheet] Could not open sheet by ID, trying active spreadsheet: ${e.message}`);
+        console.warn(`[getSheet] Fallback to active spreadsheet: ${e.message}`);
         ss = SpreadsheetApp.getActiveSpreadsheet();
       }
     } else {
       ss = SpreadsheetApp.getActiveSpreadsheet();
     }
-    
+
     if (!ss) {
-      throw new Error('Could not access any Google Spreadsheet. Please ensure the script is bound to a sheet or a valid SHEET_ID is provided.');
+      throw new Error('Could not access any Google Spreadsheet.');
     }
-    
-    console.log(`[getSheet] Opening sheet: ${sheetName}`);
+
     let sheet = ss.getSheetByName(sheetName);
-    
+
     if (!sheet) {
       console.log(`[getSheet] Creating new sheet: ${sheetName}`);
       sheet = ss.insertSheet(sheetName);
       setupSheetHeaders(sheet, sheetName);
     }
-    
+
     return sheet;
   } catch (error) {
-    console.error(`[getSheet] Error:`, error);
+    console.error(`[getSheet] Error accessing "${sheetName}":`, error);
     throw new Error(`Cannot access sheet "${sheetName}": ${error.message}`);
   }
 }
@@ -1176,9 +1265,9 @@ function setupSheetHeaders(sheet, sheetName) {
     [CONFIG.SHEETS.CUSTOMERS]: ['CustomerID', 'Phone', 'Name', 'LineUserID', 'Birthday', 'HairType', 'HairCondition', 'Allergies', 'Preferences', 'History', 'TotalVisits', 'TotalSpent', 'LastVisit', 'Notes', 'CreatedAt', 'UpdatedAt'],
     [CONFIG.SHEETS.SERVICE_RECORDS]: ['RecordID', 'OrderID', 'Date', 'StaffID', 'CustomerID', 'ServicesDone', 'ProductsUsed', 'BeforePhotoURL', 'AfterPhotoURL', 'CustomerFeedback', 'StaffNotes', 'NextAppointment'],
     [CONFIG.SHEETS.SETTINGS]: ['Key', 'Value'],
-    [CONFIG.SHEETS.REVIEWS]: ['OrderID', 'CustomerName', 'Rating', 'Review', 'Date', 'Status']
+    [CONFIG.SHEETS.REVIEWS]: ['OrderID', 'CustomerName', 'Rating', 'Review', 'Date', 'Status', 'ImageURL']
   };
-  
+
   const header = headers[sheetName];
   if (header) {
     sheet.appendRow(header);
@@ -1200,7 +1289,7 @@ function parseRequest(e) {
 
 function formatDateISO(date) {
   if (!date) return '';
-  
+
   try {
     // 1. ถ้าเป็น Date object
     if (date instanceof Date) {
@@ -1210,7 +1299,7 @@ function formatDateISO(date) {
       if (year > 2400) d.setFullYear(year - 543);
       return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
     }
-    
+
     // 2. ถ้าเป็น String
     if (typeof date === 'string') {
       // ถ้าเป็นรูปแบบ ISO yyyy-MM-dd อยู่แล้ว
@@ -1220,7 +1309,7 @@ function formatDateISO(date) {
         if (year > 2400) return (year - 543) + '-' + parts[1] + '-' + parts[2].substring(0, 2);
         return date.substring(0, 10);
       }
-      
+
       // จัดการรูปแบบ DD/MM/YYYY หรือ DD-MM-YYYY
       const parts = date.split(/[\/\-\.]/);
       if (parts.length === 3) {
@@ -1238,7 +1327,7 @@ function formatDateISO(date) {
         const d = new Date(year, month - 1, day);
         if (!isNaN(d.getTime())) return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
       }
-      
+
       // ลองใช้ new Date() เป็นวิธีสุดท้าย
       const d = new Date(date);
       if (!isNaN(d.getTime())) {
@@ -1250,7 +1339,7 @@ function formatDateISO(date) {
   } catch (e) {
     console.error('[formatDateISO Error]', e);
   }
-  
+
   // คืนค่ารูปแบบเดิมที่ตัดเอาแค่ส่วนวันที่
   return String(date).split('T')[0];
 }
@@ -1264,7 +1353,7 @@ function checkShopAvailability(dateStr) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === 'shopOpen') isOpen = data[i][1] === 'true' || data[i][1] === true;
     if (data[i][0] === 'specialDates') {
-      try { specialDates = JSON.parse(data[i][1]) || []; } catch(e) { specialDates = []; }
+      try { specialDates = JSON.parse(data[i][1]) || []; } catch (e) { specialDates = []; }
     }
   }
 
@@ -1283,17 +1372,17 @@ function checkShopAvailability(dateStr) {
 function isSlotInPast(dateStr, timeStr) {
   const tz = Session.getScriptTimeZone();
   const now = new Date();
-  
+
   // ตรวจสอบว่าปีเป็น พ.ศ. หรือ ค.ศ.
   let nowYear = now.getFullYear();
   if (nowYear > 2400) now.setFullYear(nowYear - 543);
-  
+
   const nowStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
-  
+
   // เปรียบเทียบวันที่
   if (dateStr > nowStr) return false;
   if (dateStr < nowStr) return true;
-  
+
   // ถ้าเป็นวันเดียวกัน ให้เช็คเวลา
   const nowTime = Utilities.formatDate(new Date(), tz, 'HH:mm');
   return timeStr <= nowTime;
@@ -1309,16 +1398,24 @@ function getNowTime() {
 }
 
 function getNotifyEmails() {
+  const DEFAULT_EMAILS = ['sirurai1995@gmail.com', 'nattharika1509@gmail.com'];
   try {
     const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
     const rows = sheet.getDataRange().getValues();
     for (let i = 1; i < rows.length; i++) {
       if (rows[i][0] === 'notifyEmails') {
-        return String(rows[i][1]).split(',').map(e => e.trim()).filter(e => e);
+        const emails = String(rows[i][1]).split(',').map(e => e.trim()).filter(e => e);
+        if (emails.length > 0) return emails;
+        // ถ้ามีแถวแต่ค่าว่าง ให้เติมค่า default และบันทึกลง Sheet
+        sheet.getRange(i + 1, 2).setValue(DEFAULT_EMAILS.join(','));
+        return DEFAULT_EMAILS;
       }
     }
-  } catch(e) { console.log('getNotifyEmails error:', e); }
-  return [];
+    // ถ้าไม่มีแถวเลย ให้สร้างแถวใหม่พร้อมค่า default
+    sheet.appendRow(['notifyEmails', DEFAULT_EMAILS.join(',')]);
+    return DEFAULT_EMAILS;
+  } catch (e) { console.error('getNotifyEmails error:', e); }
+  return DEFAULT_EMAILS;
 }
 
 // ============================================
@@ -1327,27 +1424,26 @@ function getNotifyEmails() {
 
 function initialSetup() {
   const ss = SpreadsheetApp.openById(CONFIG.SHEET_ID);
-  
+
   Object.values(CONFIG.SHEETS).forEach(sheetName => {
     if (!ss.getSheetByName(sheetName)) {
       const sheet = ss.insertSheet(sheetName);
       setupSheetHeaders(sheet, sheetName);
     }
   });
-  
+
   const servicesSheet = ss.getSheetByName(CONFIG.SHEETS.SERVICES);
   if (servicesSheet.getLastRow() <= 1) {
     servicesSheet.appendRow(['S001', 'ทาสีเจล (สีพื้น)', 'บริการหลัก', 150, 60, 'ทาสีเจลพื้นฐาน', '', true]);
     servicesSheet.appendRow(['S002', 'ทาสีเจล (ลูกแก้ว)', 'บริการหลัก', 200, 90, 'ทาสีเจลแบบลูกแก้ว', '', true]);
     servicesSheet.appendRow(['S003', 'ต่อ PVC (สีพื้น)', 'บริการหลัก', 250, 120, 'ต่อเล็บ PVC', '', true]);
   }
-  
+
   const staffsSheet = ss.getSheetByName(CONFIG.SHEETS.STAFFS);
   if (staffsSheet.getLastRow() <= 1) {
-    staffsSheet.appendRow(['ST001', 'ช่างเอ', 'พี่เอ', 'ทำเล็บ,เพ้นท์ลาย', 'ช่างประสบการณ์ 5 ปี', '', true]);
-    staffsSheet.appendRow(['ST002', 'ช่างบี', 'พี่บี', 'ต่อเล็บ,เสริมเล็บ', 'เชี่ยวชาญการต่อเล็บ', '', true]);
+    staffsSheet.appendRow(['ST001', 'ช่างเอ', 'พี่เอ', 'ทำเล็บ,เพ้นท์ลาย,ต่อเล็บ', 'ช่างประสบการณ์ 5 ปี', '', true]);
   }
-  
+
   const settingsSheet = ss.getSheetByName(CONFIG.SHEETS.SETTINGS);
   if (settingsSheet.getLastRow() <= 1) {
     settingsSheet.appendRow(['shopName', 'GY - Nail']);
@@ -1355,8 +1451,9 @@ function initialSetup() {
     settingsSheet.appendRow(['adminPassword', 'admin123']);
     settingsSheet.appendRow(['shopOpen', 'true']);
     settingsSheet.appendRow(['specialDates', '[]']);
+    settingsSheet.appendRow(['notifyEmails', 'sirurai1995@gmail.com,nattharika1509@gmail.com']);
   }
-  
+
   console.log('Setup completed!');
 }
 
@@ -1398,29 +1495,29 @@ function uploadImage(data) {
     if (!data.base64 || !data.fileName) {
       return { status: 'error', message: 'กรุณาเลือกรูปภาพ' };
     }
-    
+
     const folderType = data.folder || 'PORTFOLIO';
     const folder = getSubFolder(folderType);
-    
+
     const base64Data = data.base64.replace(/^data:image\/\w+;base64,/, '');
     const mimeType = data.mimeType || 'image/jpeg';
     const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, data.fileName);
-    
+
     const file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
+
     const fileId = file.getId();
     const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
     const fullUrl = `https://drive.google.com/uc?id=${fileId}`;
-    
+
     if (data.folder === 'PORTFOLIO' && data.caption) {
       savePortfolioMeta(fileId, data.caption, data.category || '');
     }
-    
+
     if (data.folder === 'REVIEWS' && data.orderId) {
       linkReviewImage(data.orderId, fullUrl);
     }
-    
+
     return {
       status: 'success',
       fileId: fileId,
@@ -1439,15 +1536,15 @@ function savePortfolioMeta(fileId, caption, category) {
   const rows = sheet.getDataRange().getValues();
   let portfolio = [];
   let rowIndex = -1;
-  
+
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === 'portfolio') {
-      try { portfolio = JSON.parse(rows[i][1]) || []; } catch(e) {}
+      try { portfolio = JSON.parse(rows[i][1]) || []; } catch (e) { }
       rowIndex = i + 1;
       break;
     }
   }
-  
+
   portfolio.push({
     id: fileId,
     caption: caption,
@@ -1456,7 +1553,7 @@ function savePortfolioMeta(fileId, caption, category) {
     thumb: `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
     date: new Date().toISOString()
   });
-  
+
   if (rowIndex > 0) sheet.getRange(rowIndex, 2).setValue(JSON.stringify(portfolio));
   else sheet.appendRow(['portfolio', JSON.stringify(portfolio)]);
 }
@@ -1466,7 +1563,7 @@ function linkReviewImage(orderId, imageUrl) {
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][0] === orderId) {
-      sheet.getRange(i + 1, 8).setValue(imageUrl);
+      sheet.getRange(i + 1, 7).setValue(imageUrl); // Column 7 = ImageURL (แก้ BUG-13)
       break;
     }
   }
@@ -1477,20 +1574,20 @@ function getPortfolio(data) {
     const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
     const rows = sheet.getDataRange().getValues();
     let portfolio = [];
-    
+
     for (let i = 1; i < rows.length; i++) {
       if (rows[i][0] === 'portfolio') {
-        try { portfolio = JSON.parse(rows[i][1]) || []; } catch(e) {}
+        try { portfolio = JSON.parse(rows[i][1]) || []; } catch (e) { }
         break;
       }
     }
-    
+
     if (data && data.category) {
       portfolio = portfolio.filter(p => p.category === data.category);
     }
-    
+
     portfolio.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
+
     return { status: 'success', data: portfolio };
   } catch (error) {
     return { status: 'error', message: error.toString() };
@@ -1500,9 +1597,9 @@ function getPortfolio(data) {
 function deleteImage(data) {
   try {
     if (!data.fileId) return { status: 'error', message: 'Missing fileId' };
-    
+
     DriveApp.getFileById(data.fileId).setTrashed(true);
-    
+
     const sheet = getSheet(CONFIG.SHEETS.SETTINGS);
     const rows = sheet.getDataRange().getValues();
     for (let i = 1; i < rows.length; i++) {
@@ -1511,11 +1608,11 @@ function deleteImage(data) {
           let portfolio = JSON.parse(rows[i][1]) || [];
           portfolio = portfolio.filter(p => p.id !== data.fileId);
           sheet.getRange(i + 1, 2).setValue(JSON.stringify(portfolio));
-        } catch(e) {}
+        } catch (e) { }
         break;
       }
     }
-    
+
     return { status: 'success' };
   } catch (error) {
     return { status: 'error', message: error.toString() };

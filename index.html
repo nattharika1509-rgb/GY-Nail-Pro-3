@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="th">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2976,3 +2975,111 @@
             const bubble = document.getElementById('contact-bubble').querySelector('div:first-child');
             const links = menu.querySelectorAll('a');
             contactMenuOpen = !contactMenuOpen;
+
+            if (contactMenuOpen) {
+                menu.classList.remove('hidden');
+                bubble.style.transform = 'rotate(0deg)';
+                links.forEach((link, i) => {
+                    link.style.animation = 'none';
+                    link.offsetHeight;
+                    link.style.animation = `contactPop 0.3s ease forwards ${i * 0.08}s`;
+                });
+            } else {
+                menu.classList.add('hidden');
+                bubble.style.transform = 'rotate(-90deg)';
+            }
+        }
+
+        function loadContactChannels() {
+            // ใช้ settings ที่โหลดมาแล้วแทนการเรียก API ซ้ำ (แก้ BUG-20)
+            if (settings && settings.contactChannels) {
+                let channels = settings.contactChannels;
+                if (typeof channels === 'string') {
+                    try { channels = JSON.parse(channels); } catch (e) { console.error("Error parsing contactChannels", e); return; }
+                }
+                if (channels.facebook) document.getElementById('contact-facebook').href = channels.facebook;
+                if (channels.tiktok) document.getElementById('contact-tiktok').href = channels.tiktok;
+                if (channels.phone) document.getElementById('contact-phone').href = 'tel:' + channels.phone;
+            }
+        }
+
+        // ============================================
+        // SNOWFALL EFFECT
+        // ============================================
+
+        let snowCanvas, snowCtx;
+        let snowflakes = [];
+        let snowAnimationId;
+
+        function initSnowfall() {
+            snowCanvas = document.getElementById('snowCanvas');
+            if (!snowCanvas) return;
+            snowCtx = snowCanvas.getContext('2d');
+            if (!snowCtx) return;
+            resizeSnowCanvas();
+            window.addEventListener('resize', resizeSnowCanvas);
+            createSnowflakes();
+            animateSnow();
+        }
+
+        function resizeSnowCanvas() {
+            if (!snowCanvas) return;
+            snowCanvas.width = window.innerWidth;
+            snowCanvas.height = window.innerHeight;
+        }
+
+        function createSnowflakes() {
+            snowflakes = [];
+            const flakeCount = Math.floor(window.innerWidth / 8);
+            for (let i = 0; i < flakeCount; i++) {
+                snowflakes.push({
+                    x: Math.random() * snowCanvas.width,
+                    y: Math.random() * snowCanvas.height,
+                    r: Math.random() * 3 + 1,
+                    d: Math.random() * flakeCount,
+                    speed: Math.random() * 1 + 0.5
+                });
+            }
+        }
+
+        function animateSnow() {
+            snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
+            snowCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            snowCtx.beginPath();
+
+            for (let i = 0; i < snowflakes.length; i++) {
+                const flake = snowflakes[i];
+                snowCtx.moveTo(flake.x, flake.y);
+                snowCtx.arc(flake.x, flake.y, flake.r, 0, Math.PI * 2, true);
+            }
+            snowCtx.fill();
+            moveSnowflakes();
+            snowAnimationId = requestAnimationFrame(animateSnow);
+        }
+
+        function moveSnowflakes() {
+            for (let i = 0; i < snowflakes.length; i++) {
+                const flake = snowflakes[i];
+                flake.y += flake.speed;
+                flake.x += Math.sin(flake.d) * 0.5;
+
+                if (flake.y > snowCanvas.height) {
+                    flake.y = -10;
+                    flake.x = Math.random() * snowCanvas.width;
+                }
+                if (flake.x > snowCanvas.width) flake.x = 0;
+                if (flake.x < 0) flake.x = snowCanvas.width;
+                flake.d += 0.01;
+            }
+        }
+
+        function stopSnowfall() {
+            if (snowAnimationId) {
+                cancelAnimationFrame(snowAnimationId);
+                snowCtx.clearRect(0, 0, snowCanvas.width, snowCanvas.height);
+            }
+        }
+    </script>
+</body>
+
+</html>
